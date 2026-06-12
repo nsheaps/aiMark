@@ -38,6 +38,9 @@
     "packages/suites": {
       "name": "@aimark/suites",
       "version": "0.1.0",
+      "devDependencies": {
+        "@aimark/schema": "workspace:*",
+      },
     },
     "services/api": {
       "name": "@aimark/api",

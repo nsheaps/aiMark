@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Glob } from "bun";
+import { validateSuiteManifestV1 } from "@aimark/schema";
 
 const manifests = [...new Glob("*/manifest.json").scanSync({ cwd: `${import.meta.dir}/..` })];
 
@@ -9,14 +10,11 @@ describe("suite manifests", () => {
   });
 
   for (const path of manifests) {
-    test(`${path} has the required shape`, async () => {
+    test(`${path} validates against suite-manifest.v1`, async () => {
       const manifest = await Bun.file(`${import.meta.dir}/../${path}`).json();
-      expect(typeof manifest.id).toBe("string");
-      expect(Number.isInteger(manifest.version)).toBe(true);
+      validateSuiteManifestV1(manifest);
+      expect(validateSuiteManifestV1.errors ?? []).toEqual([]);
       expect(`${manifest.id}-${manifest.version}/manifest.json`).toBe(path);
-      expect(Array.isArray(manifest.tracks)).toBe(true);
-      expect(manifest.protocol).toBeDefined();
-      expect(manifest.scoring).toBeDefined();
     });
   }
 });

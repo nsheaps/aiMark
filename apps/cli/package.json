@@ -6,8 +6,9 @@
   "scripts": {
     "build": "go build -o aimark ./cmd/aimark",
     "test": "go test ./...",
-    "lint": "test -z \"$(gofmt -l .)\" && golangci-lint run",
-    "format": "gofmt -w . && golangci-lint run",
-    "codegen": "go run github.com/omissis/go-jsonschema/cmd/gojsonschema@v0.18.0 -p schema --output internal/schema/run_v1.go ../../packages/schema/schemas/run.v1.json"
+    "lint": "test -z \"$(gofmt -l .)\" && golangci-lint run && bun run codegen:check",
+    "format": "gofmt -w . && golangci-lint run && bun run codegen:check",
+    "codegen": "go run github.com/atombender/go-jsonschema@v0.18.0 -p schema --only-models --output internal/schema/schema_gen.go ../../packages/schema/schemas/run.v1.json ../../packages/schema/schemas/suite-manifest.v1.json ../../packages/schema/schemas/samples.v1.json && gofmt -w internal/schema/schema_gen.go",
+    "codegen:check": "bun run codegen && git diff --exit-code -- internal/schema || (echo 'Generated Go types are stale. Run `mise run codegen` and commit.' && exit 1)"
   }
 }

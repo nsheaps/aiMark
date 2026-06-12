@@ -4,7 +4,16 @@
   "title": "AimarkRunV1",
   "description": "A single aiMark benchmark run: one suite executed against one target with one parameter vector. This envelope is what `aimark submit` sends (raw samples upload separately to blob storage).",
   "type": "object",
-  "required": ["schema_version", "run_id", "created_at", "cli", "suite", "target", "metrics"],
+  "required": [
+    "schema_version",
+    "run_id",
+    "created_at",
+    "source",
+    "cli",
+    "suite",
+    "target",
+    "metrics"
+  ],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
@@ -24,6 +33,11 @@
     "created_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "description": "Where the run originated. The CLI auto-detects CI environments (CI/GITHUB_ACTIONS env vars) and flags them; ci and dev runs are excluded from default leaderboards.",
+      "enum": ["user", "ci", "dev"]
     },
     "cli": {
       "type": "object",

@@ -1,10 +1,14 @@
 {
   "id": "sprint",
   "version": 1,
-  "status": "draft",
+  "status": "frozen",
   "title": "Sprint 1",
   "description": "Interactive latency — the 'chat feel' benchmark. Short prompts, short completions, single stream.",
   "tracks": ["local", "hosted"],
+  "reference": {
+    "label": "synthetic-1",
+    "notes": "v1 anchors the 1000-point scale to round-number synthetic baselines (100 tok/s decode, 50ms TTFT, 1500ms p95, CV 0.10) rather than a measured reference rig. A future suite version will re-anchor to measured hardware; per the versioning rules that resets the leaderboard."
+  },
   "protocol": {
     "warmup_requests": 3,
     "repetitions": 20,
@@ -15,18 +19,60 @@
       "max_tokens": 256
     }
   },
+  "tasks": [
+    {
+      "id": "greet",
+      "prompt": "Say hello and introduce yourself in two sentences."
+    },
+    {
+      "id": "summarize",
+      "prompt": "Summarize in one sentence: The James Webb Space Telescope is the largest optical telescope in space. Its high resolution and sensitivity allow it to view objects too old, distant, or faint for the Hubble Space Telescope."
+    },
+    {
+      "id": "rewrite",
+      "prompt": "Rewrite this sentence to be more formal: 'hey can u send me that doc real quick'"
+    },
+    {
+      "id": "list",
+      "prompt": "List five common uses for a paperclip, one per line."
+    },
+    {
+      "id": "explain",
+      "prompt": "Explain what a REST API is to someone who has never programmed, in three sentences."
+    },
+    {
+      "id": "translate",
+      "prompt": "Translate to French: 'The library opens at nine in the morning.'"
+    },
+    {
+      "id": "classify",
+      "prompt": "Classify the sentiment of this review as positive, negative, or neutral, answering with a single word: 'The food was cold but the staff were friendly.'"
+    },
+    {
+      "id": "continue",
+      "prompt": "Continue this story with exactly two more sentences: 'The lighthouse keeper noticed the ship turning toward the rocks.'"
+    },
+    {
+      "id": "advise",
+      "prompt": "Give three short tips for remembering people's names."
+    },
+    {
+      "id": "define",
+      "prompt": "Define the word 'serendipity' in one sentence."
+    }
+  ],
   "scoring": {
     "performance": {
       "metrics": [
-        { "key": "decode_tps_mean", "reference": null, "weight": 3 },
-        { "key": "ttft_ms_p50", "reference": null, "weight": 3, "lower_is_better": true },
-        { "key": "latency_ms_p95", "reference": null, "weight": 2, "lower_is_better": true }
+        { "key": "decode_tps_mean", "reference": 100, "weight": 3 },
+        { "key": "ttft_ms_p50", "reference": 50, "weight": 3, "lower_is_better": true },
+        { "key": "latency_ms_p95", "reference": 1500, "weight": 2, "lower_is_better": true }
       ]
     },
     "consistency": {
       "metrics": [
-        { "key": "ttft_ms_cv", "reference": null, "weight": 1, "lower_is_better": true },
-        { "key": "latency_ms_cv", "reference": null, "weight": 1, "lower_is_better": true }
+        { "key": "ttft_ms_cv", "reference": 0.1, "weight": 1, "lower_is_better": true },
+        { "key": "latency_ms_cv", "reference": 0.1, "weight": 1, "lower_is_better": true }
       ]
     },
     "composite_weights": {
@@ -34,5 +80,11 @@
       "consistency": 1
     }
   },
-  "_freeze_note": "reference values are measured on the reference setup and filled in when this suite version is frozen; null references mean the suite is still draft and scores are not comparable"
+  "plausibility": {
+    "decode_tps_mean": { "min": 0.1, "max": 50000 },
+    "ttft_ms_p50": { "min": 0.05, "max": 600000 },
+    "latency_ms_p95": { "min": 1, "max": 600000 },
+    "ttft_ms_cv": { "min": 0, "max": 10 },
+    "latency_ms_cv": { "min": 0, "max": 10 }
+  }
 }

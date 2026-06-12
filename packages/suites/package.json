@@ -9,5 +9,8 @@
     "test": "bun test",
     "lint": "prettier --check .",
     "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@aimark/schema": "workspace:*"
   }
 }

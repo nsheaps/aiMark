@@ -14,6 +14,10 @@ export interface AimarkRunV1 {
    */
   sweep_id?: string;
   created_at: string;
+  /**
+   * Where the run originated. The CLI auto-detects CI environments (CI/GITHUB_ACTIONS env vars) and flags them; ci and dev runs are excluded from default leaderboards.
+   */
+  source: "user" | "ci" | "dev";
   cli: {
     version: string;
     commit?: string;
