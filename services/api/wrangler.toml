@@ -1,0 +1,24 @@
+# Cloudflare Workers config for the aimark API + site.
+# D1/R2/KV bindings get real IDs once the Cloudflare account resources exist
+# (see docs/specs/draft/aimark-platform.md "Manual setup required").
+name = "aimark"
+main = "entrypoints/worker.ts"
+compatibility_date = "2026-06-01"
+
+# Static site assets (built by services/web) are served from the same Worker.
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "aimark"
+# database_id = "TBD"
+
+# [[r2_buckets]]
+# binding = "ARTIFACTS"
+# bucket_name = "aimark-artifacts"
+
+# [[kv_namespaces]]
+# binding = "RATE_LIMITS"
+# id = "TBD"

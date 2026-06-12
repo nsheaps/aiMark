@@ -1,0 +1,19 @@
+node_modules
+.git
+*.lock
+bun.lock
+package-lock.json
+CHANGELOG.md
+
+# Build outputs
+dist/
+**/dist/
+*.tsbuildinfo
+.astro/
+
+# nx cache
+.nx/
+
+# Generated code (owned by codegen, not prettier)
+packages/schema/src/generated/
+apps/cli/internal/schema/

@@ -1,0 +1,13 @@
+{
+  "name": "@aimark/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The aimark CLI (Go) wrapped as an nx project",
+  "scripts": {
+    "build": "go build -o aimark ./cmd/aimark",
+    "test": "go test ./...",
+    "lint": "test -z \"$(gofmt -l .)\" && golangci-lint run",
+    "format": "gofmt -w . && golangci-lint run",
+    "codegen": "go run github.com/omissis/go-jsonschema/cmd/gojsonschema@v0.18.0 -p schema --output internal/schema/run_v1.go ../../packages/schema/schemas/run.v1.json"
+  }
+}

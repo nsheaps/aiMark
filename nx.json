@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "production": [
+      "default",
+      "!{projectRoot}/**/*.test.{ts,tsx,js,jsx}",
+      "!{projectRoot}/**/*.spec.{ts,tsx,js,jsx}",
+      "!{projectRoot}/test/**/*",
+      "!{projectRoot}/tests/**/*",
+      "!{projectRoot}/tsconfig.json"
+    ],
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/.prettierrc.yaml",
+      "{workspaceRoot}/.prettierignore",
+      "{workspaceRoot}/mise.toml"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    },
+    "test": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"]
+    },
+    "lint": {
+      "cache": true,
+      "inputs": ["default", "{workspaceRoot}/.prettierrc.yaml", "{workspaceRoot}/.prettierignore"]
+    },
+    "format": {
+      "cache": false
+    },
+    "codegen": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false
+    }
+  },
+  "defaultBase": "main"
+}

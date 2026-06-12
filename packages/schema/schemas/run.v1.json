@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aimark.dev/schemas/run.v1.json",
+  "title": "AimarkRunV1",
+  "description": "A single aiMark benchmark run: one suite executed against one target with one parameter vector. This envelope is what `aimark submit` sends (raw samples upload separately to blob storage).",
+  "type": "object",
+  "required": ["schema_version", "run_id", "created_at", "cli", "suite", "target", "metrics"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "aimark.run.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "ULID assigned by the CLI at run start",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "sweep_id": {
+      "type": "string",
+      "description": "Shared ULID when this run is one cell of a parameter sweep",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cli": {
+      "type": "object",
+      "required": ["version", "os", "arch"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string" },
+        "commit": { "type": "string" },
+        "os": { "type": "string", "enum": ["darwin", "linux", "windows"] },
+        "arch": { "type": "string", "enum": ["amd64", "arm64"] }
+      }
+    },
+    "suite": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "Suite family, e.g. \"sprint\"" },
+        "version": { "type": "integer", "minimum": 1 },
+        "protocol_hash": {
+          "type": "string",
+          "description": "SHA-256 of the frozen suite manifest the CLI executed"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["kind", "model"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["local", "hosted"] },
+        "runtime": {
+          "type": "string",
+          "description": "Local runtime id (ollama, llamacpp, vllm, lmstudio) — local kind only"
+        },
+        "runtime_version": { "type": "string" },
+        "provider": {
+          "type": "string",
+          "description": "Hosted provider id (anthropic, openai, google, bedrock, openrouter) — hosted kind only"
+        },
+        "region": { "type": "string" },
+        "model": { "type": "string", "description": "Model identifier as the target reports it" },
+        "model_digest": {
+          "type": "string",
+          "description": "Content digest of the model weights where the runtime exposes one"
+        },
+        "quantization": { "type": "string" },
+        "declared_params_b": {
+          "type": "number",
+          "description": "Declared parameter count in billions, when known"
+        },
+        "params": {
+          "type": "object",
+          "description": "Captured request parameter vector (num_ctx, concurrency, temperature, prompt_caching, ...)",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean"]
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hardware_profile": { "$ref": "#/definitions/hardwareProfile" },
+        "network_rtt_ms": {
+          "type": "number",
+          "description": "Pre-flight RTT to the hosted endpoint, reported separately from TTFT"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Aggregate metrics keyed by metric id (ttft_ms_p50, decode_tps_mean, ...)",
+      "additionalProperties": { "type": "number" }
+    },
+    "provisional_scores": {
+      "type": "object",
+      "description": "Scores the CLI computed locally; the server recompute is canonical",
+      "additionalProperties": false,
+      "properties": {
+        "performance": { "type": "number" },
+        "quality": { "type": "number" },
+        "cost_efficiency": { "type": "number" },
+        "consistency": { "type": "number" },
+        "composite": { "type": "number" }
+      }
+    },
+    "pricing_snapshot": {
+      "type": "object",
+      "description": "Hosted track: provider pricing at run time",
+      "additionalProperties": false,
+      "properties": {
+        "currency": { "type": "string" },
+        "input_per_mtok": { "type": "number" },
+        "output_per_mtok": { "type": "number" },
+        "captured_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["payload_sha256", "nonce"],
+      "additionalProperties": false,
+      "properties": {
+        "payload_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "hmac": { "type": "string" },
+        "key_gen": { "type": "string", "description": "CLI release key generation identifier" },
+        "nonce": { "type": "string" }
+      }
+    }
+  },
+  "definitions": {
+    "hardwareProfile": {
+      "type": "object",
+      "required": ["os", "arch"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Hash of the canonical hardware fields, so identical rigs cluster"
+        },
+        "cpu_model": { "type": "string" },
+        "cpu_cores_physical": { "type": "integer" },
+        "cpu_cores_logical": { "type": "integer" },
+        "ram_gb": { "type": "number" },
+        "unified_memory": { "type": "boolean" },
+        "gpus": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "vram_gb": { "type": "number" },
+              "vendor": { "type": "string" }
+            }
+          }
+        },
+        "os": { "type": "string" },
+        "os_version": { "type": "string" },
+        "arch": { "type": "string" }
+      }
+    }
+  }
+}

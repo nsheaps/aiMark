@@ -21,21 +21,21 @@ Your run appears on the public leaderboard, comparable against every other submi
 | ------------------- | ------------------------------------------------------------------- |
 | **Performance**     | tokens/sec, time-to-first-token, latency p50/p95/p99, throughput    |
 | **Quality**         | accuracy on objectively-graded task suites (math, extraction, code) |
-| **Cost-Efficiency** | quality per dollar (hosted APIs)                                     |
-| **Consistency**     | run-to-run variance                                                  |
+| **Cost-Efficiency** | quality per dollar (hosted APIs)                                    |
+| **Consistency**     | run-to-run variance                                                 |
 
 Sub-scores roll up into a composite **aiMark Score**, normalized so a frozen reference setup scores ~1000 — just like 3DMark generations, scores are only comparable within a suite version.
 
 ## Repository layout
 
-| Path             | Contents                                                          |
-| ---------------- | ------------------------------------------------------------------ |
-| `apps/cli`       | The `aimark` CLI (Go)                                              |
-| `services/api`   | Submission + leaderboard API (TypeScript, Hono, Cloudflare Workers) |
-| `services/web`   | Public site (Astro)                                                |
-| `packages/schema`  | JSON Schemas — source of truth shared between Go and TS           |
-| `packages/scoring` | Canonical scoring implementation (TS)                             |
-| `packages/suites`  | Benchmark suite manifests and task datasets                       |
+| Path               | Contents                                                            |
+| ------------------ | ------------------------------------------------------------------- |
+| `apps/cli`         | The `aimark` CLI (Go)                                               |
+| `services/api`     | Submission + leaderboard API (TypeScript, Hono, Cloudflare Workers) |
+| `services/web`     | Public site (Astro)                                                 |
+| `packages/schema`  | JSON Schemas — source of truth shared between Go and TS             |
+| `packages/scoring` | Canonical scoring implementation (TS)                               |
+| `packages/suites`  | Benchmark suite manifests and task datasets                         |
 
 ## Documentation
 

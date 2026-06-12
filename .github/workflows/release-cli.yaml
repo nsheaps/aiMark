@@ -1,0 +1,28 @@
+name: Release CLI
+
+# CLI releases own the repo's plain `v*` tags (goreleaser OSS can't strip
+# monorepo tag prefixes). Web releases use `web-v*` via release-it.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
+      - name: goreleaser release
+        working-directory: apps/cli
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: goreleaser release --clean

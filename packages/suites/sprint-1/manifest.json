@@ -1,0 +1,38 @@
+{
+  "id": "sprint",
+  "version": 1,
+  "status": "draft",
+  "title": "Sprint 1",
+  "description": "Interactive latency — the 'chat feel' benchmark. Short prompts, short completions, single stream.",
+  "tracks": ["local", "hosted"],
+  "protocol": {
+    "warmup_requests": 3,
+    "repetitions": 20,
+    "request_timeout_ms": 60000,
+    "streaming": true,
+    "decoding": {
+      "temperature": 0,
+      "max_tokens": 256
+    }
+  },
+  "scoring": {
+    "performance": {
+      "metrics": [
+        { "key": "decode_tps_mean", "reference": null, "weight": 3 },
+        { "key": "ttft_ms_p50", "reference": null, "weight": 3, "lower_is_better": true },
+        { "key": "latency_ms_p95", "reference": null, "weight": 2, "lower_is_better": true }
+      ]
+    },
+    "consistency": {
+      "metrics": [
+        { "key": "ttft_ms_cv", "reference": null, "weight": 1, "lower_is_better": true },
+        { "key": "latency_ms_cv", "reference": null, "weight": 1, "lower_is_better": true }
+      ]
+    },
+    "composite_weights": {
+      "performance": 3,
+      "consistency": 1
+    }
+  },
+  "_freeze_note": "reference values are measured on the reference setup and filled in when this suite version is frozen; null references mean the suite is still draft and scores are not comparable"
+}

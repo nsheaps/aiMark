@@ -1,0 +1,13 @@
+{
+  "name": "@aimark/suites",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Benchmark suite manifests and task datasets. Suite versions are frozen deliberately — bumping one resets a leaderboard.",
+  "type": "module",
+  "scripts": {
+    "build": "true",
+    "test": "bun test",
+    "lint": "prettier --check .",
+    "format": "prettier --write ."
+  }
+}

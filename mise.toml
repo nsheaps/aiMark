@@ -1,0 +1,45 @@
+# Toolchain for the aiMark monorepo. Versions are pinned; renovate keeps them fresh.
+#
+# Task semantics (same convention as nsheaps/agents):
+#   lint   — run ALL checks read-only (prettier --check, tsc --noEmit,
+#            golangci-lint, codegen staleness). Never writes. CI gate.
+#   format — run all auto-fixers (prettier --write, gofmt, codegen), THEN
+#            re-run the same check suite as lint, so `format` can write
+#            files AND still fail on non-fixable checks. The autofix CI
+#            job uses `mise run format` and commits any writes.
+
+[tools]
+jq = "1.8.1"
+bun = "1.3.14"
+node = "24.16.0"
+go = "1.25.11"
+golangci-lint = "2.12.2"
+goreleaser = "2.16.0"
+
+[tasks.format]
+description = "Auto-fix every project via nx, then re-verify with the same checks lint runs"
+run = "bunx nx run-many --target=format"
+
+[tasks.lint]
+description = "Read-only lint every project via nx (no writes)"
+run = "bunx nx run-many --target=lint"
+
+[tasks.build]
+description = "Build every project via nx"
+run = "bunx nx run-many --target=build"
+
+[tasks.test]
+description = "Test every project via nx"
+run = "bunx nx run-many --target=test"
+
+[tasks.check]
+description = "lint + build + test"
+run = ["mise run lint", "mise run build", "mise run test"]
+
+[tasks.codegen]
+description = "Regenerate Go + TS types from the JSON Schemas in packages/schema"
+run = "bunx nx run-many --target=codegen"
+
+[tasks.dev]
+description = "Run the API (Bun + local SQLite) and the Astro site together"
+run = "bunx nx run-many --target=dev --parallel=10"

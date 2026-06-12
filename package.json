@@ -1,0 +1,35 @@
+{
+  "name": "aimark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Like 3DMark, but for AI — benchmark AI models across runtimes, providers, and hardware",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nsheaps/aiMark.git"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "workspaces": [
+    "apps/cli",
+    "services/*",
+    "packages/*"
+  ],
+  "nx": {
+    "name": "root",
+    "includedScripts": [
+      "format",
+      "lint"
+    ]
+  },
+  "scripts": {
+    "format": "prettier --write \"**/*.{md,yaml,yml,json}\" --ignore-path .prettierignore --ignore-path .prettierignore-root",
+    "lint": "prettier --check \"**/*.{md,yaml,yml,json}\" --ignore-path .prettierignore --ignore-path .prettierignore-root"
+  },
+  "devDependencies": {
+    "@release-it/conventional-changelog": "^11.0.0",
+    "@types/bun": "^1.2.0",
+    "nx": "^22.0.0",
+    "prettier": "^3.0.0",
+    "release-it": "^20.0.0",
+    "typescript": "^5.9.0"
+  }
+}

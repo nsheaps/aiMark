@@ -1,0 +1,111 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.ref == 'refs/heads/main' && 'ci-cd-main' || format('ci-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Lint runs the full auto-fix pass via `mise run format`. If anything changed
+  # or any non-fixable check failed, the workflow auto-commits the writes back
+  # to the PR branch and exits 1 so CI re-runs against the final state.
+  lint:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-autofix-${{ github.head_ref || github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout and authenticate as GitHub App
+        id: auth
+        uses: nsheaps/github-actions/.github/actions/checkout-as-app@603052841cd49b9fdc99bc32979ff9c45c9b669e # checkout-as-app@main
+        with:
+          app-id: ${{ secrets.AUTOMATION_GITHUB_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_GITHUB_APP_PRIVATE_KEY }}
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: ${{ github.event_name == 'pull_request' }}
+
+      - name: Install bun deps
+        run: bun install --frozen-lockfile
+
+      - name: mise run format (auto-fix mode)
+        id: lint
+        uses: ./.github/actions/lint-files
+        with:
+          fix: 'true'
+        continue-on-error: true
+
+      - name: git push (auto-commit lint/format fixes)
+        if: steps.lint.outputs.changed-or-failed == 'true' && ! cancelled()
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: 'chore: `mise run format`'
+          commit_user_name: ${{ steps.auth.outputs.user-name }}
+          commit_user_email: ${{ steps.auth.outputs.user-email }}
+
+      - name: 'exit 1 # changes detected or lint failed'
+        if: ${{ steps.lint.outputs.changed-or-failed == 'true' && ! cancelled() }}
+        run: |
+          echo "mise run format made changes and/or a non-fixable check failed."
+          echo "Any writes have been auto-committed; re-run will pick them up."
+          exit 1
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('apps/cli/go.sum') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: mise run build (nx run-many --target=build)
+        run: mise run build
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('apps/cli/go.sum') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: mise run test (nx run-many --target=test)
+        run: mise run test

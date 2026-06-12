@@ -1,0 +1,21 @@
+{
+  "name": "@aimark/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "aimark.dev public site (Astro, served as Cloudflare Worker static assets)",
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "test": "true",
+    "lint": "prettier --check src && astro check",
+    "format": "prettier --write src && astro check",
+    "dev": "astro dev --port 4321"
+  },
+  "dependencies": {
+    "astro": "^5.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.0",
+    "prettier-plugin-astro": "^0.14.0"
+  }
+}
