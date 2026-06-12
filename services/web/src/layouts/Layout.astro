@@ -1,0 +1,199 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = "Benchmark AI models across runtimes, providers, and hardware. Run standardized suites locally, submit your score, compare with everyone.",
+} = Astro.props;
+
+// Dev/screenshot override for the API origin. In production the API is served
+// from the same origin (one Cloudflare Worker hosts /v1/* and these static
+// assets), so this is empty and all client fetches use relative URLs.
+const apiBase: string = import.meta.env.PUBLIC_AIMARK_API ?? "";
+
+const nav = [
+  { href: "/leaderboard/sprint/1/", label: "Leaderboards" },
+  { href: "/compare/", label: "Compare" },
+  { href: "/docs/glossary/", label: "Glossary" },
+  { href: "/docs/methodology/", label: "Methodology" },
+  { href: "/install/", label: "Install" },
+];
+
+const path = Astro.url.pathname;
+const isActive = (href: string) => path === href || (href !== "/" && path.startsWith(href));
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="aimark-api" content={apiBase} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="logo" href="/" aria-label="aiMark home">
+          ai<span class="logo-mark">Mark</span>
+        </a>
+        <nav aria-label="Main">
+          <ul>
+            {
+              nav.map((item) => (
+                <li>
+                  <a href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>
+                    {item.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div>
+          <p class="footer-brand">ai<span class="logo-mark">Mark</span></p>
+          <p class="muted">
+            Like 3DMark, but for AI. Open benchmarks for local and hosted models.
+          </p>
+        </div>
+        <nav aria-label="Footer">
+          <ul>
+            <li><a href="/leaderboard/sprint/1/">Leaderboards</a></li>
+            <li><a href="/compare/">Compare</a></li>
+            <li><a href="/docs/glossary/">Glossary</a></li>
+            <li><a href="/docs/methodology/">Methodology</a></li>
+            <li><a href="/install/">Install</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="container">
+        <p class="muted footer-note">
+          Scores are only comparable within the same suite version and track — just like 3DMark
+          generations.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    background: var(--accent);
+    color: #04211d;
+    padding: 0.5rem 1rem;
+    border-radius: 0 0 8px 0;
+    z-index: 100;
+  }
+
+  .skip-link:focus {
+    left: 0;
+  }
+
+  .site-header {
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 0.8rem;
+    padding-bottom: 0.8rem;
+  }
+
+  .logo,
+  .footer-brand {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .footer-brand {
+    margin: 0 0 0.25rem;
+  }
+
+  .logo:hover {
+    text-decoration: none;
+  }
+
+  .logo-mark {
+    color: var(--accent);
+  }
+
+  .site-header nav ul,
+  .site-footer nav ul {
+    list-style: none;
+    display: flex;
+    gap: 1.25rem;
+    margin: 0;
+    padding: 0;
+    flex-wrap: wrap;
+  }
+
+  .site-header nav a {
+    color: var(--muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  .site-header nav a:hover {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .site-header nav a[aria-current="page"] {
+    color: var(--accent);
+  }
+
+  .site-footer {
+    border-top: 1px solid var(--border);
+    margin-top: 4rem;
+    padding: 2rem 0 2.5rem;
+    font-size: 0.92rem;
+  }
+
+  .footer-inner {
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .site-footer nav ul {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .footer-note {
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+  }
+</style>

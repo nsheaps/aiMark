@@ -14,9 +14,13 @@
   "dependencies": {
     "@aimark/schema": "workspace:*",
     "@aimark/scoring": "workspace:*",
+    "@aimark/suites": "workspace:*",
+    "drizzle-orm": "^0.44.0",
     "hono": "^4.7.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260601.0",
+    "drizzle-kit": "^0.31.0",
     "wrangler": "^4.0.0"
   }
 }
