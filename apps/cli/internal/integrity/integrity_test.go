@@ -113,3 +113,16 @@ func TestSignAndVerify(t *testing.T) {
 		t.Fatal("Verify = true for tampered envelope")
 	}
 }
+
+// The server's TS canonicalizer (JSON.stringify) never HTML-escapes; the Go
+// side must agree byte-for-byte or dev-key HMACs can never match.
+func TestCanonicalJSONDoesNotEscapeHTML(t *testing.T) {
+	got, err := CanonicalJSON(map[string]any{"s": `a<b>&c`, "n": 0.1})
+	if err != nil {
+		t.Fatalf("CanonicalJSON: %v", err)
+	}
+	want := `{"n":0.1,"s":"a<b>&c"}`
+	if string(got) != want {
+		t.Fatalf("CanonicalJSON = %s, want %s", got, want)
+	}
+}

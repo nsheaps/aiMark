@@ -54,12 +54,7 @@ func TestGoldenSubScores(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			specs := make([]MetricSpec, 0, len(tc.Specs))
 			for _, s := range tc.Specs {
-				specs = append(specs, MetricSpec{
-					Key:           s.Key,
-					Reference:     s.Reference,
-					Weight:        s.Weight,
-					LowerIsBetter: s.LowerIsBetter,
-				})
+				specs = append(specs, MetricSpec(s))
 			}
 			got, err := SubScore(tc.Metrics, specs)
 			if err != nil {

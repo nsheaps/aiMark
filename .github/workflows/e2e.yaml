@@ -67,7 +67,7 @@ jobs:
 
       - name: Start API
         run: |
-          PORT=8788 AIMARK_DB=/tmp/e2e-ollama.sqlite bun services/api/entrypoints/bun.ts &
+          PORT=8788 AIMARK_DB_PATH=/tmp/e2e-ollama.sqlite bun services/api/entrypoints/bun.ts &
           for i in $(seq 1 30); do curl -fsS http://localhost:8788/v1/health && break; sleep 1; done
 
       - name: Benchmark Ollama and submit anonymously

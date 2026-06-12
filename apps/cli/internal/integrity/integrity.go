@@ -24,7 +24,8 @@ import (
 )
 
 // signingKey is the embedded dev key; release builds override via ldflags.
-var signingKey = "aimark-dev-integrity-key-not-secret"
+// MUST match services/api/src/canonical.ts DEV_KEY for key_gen "dev".
+var signingKey = "aimark-dev-integrity-key-v0"
 
 // keyGen identifies the key generation; release builds override via ldflags.
 var keyGen = "dev"
@@ -35,7 +36,9 @@ func KeyGen() string { return keyGen }
 // CanonicalJSON produces a stable encoding of v: the struct is marshaled,
 // re-decoded generically with json.Number (so numbers round-trip untouched),
 // and re-marshaled — encoding/json emits map keys sorted, giving canonical
-// bytes.
+// bytes. HTML escaping is disabled because the server's TS canonicalizer
+// (JSON.stringify) does not escape <, >, & — both sides must emit identical
+// bytes or the HMAC never matches.
 func CanonicalJSON(v any) ([]byte, error) {
 	raw, err := json.Marshal(v)
 	if err != nil {
@@ -47,11 +50,13 @@ func CanonicalJSON(v any) ([]byte, error) {
 	if err := dec.Decode(&generic); err != nil {
 		return nil, fmt.Errorf("integrity: decode for canonicalization: %w", err)
 	}
-	canonical, err := json.Marshal(generic)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(generic); err != nil {
 		return nil, fmt.Errorf("integrity: canonical marshal: %w", err)
 	}
-	return canonical, nil
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
 }
 
 // Sign computes the integrity block over the envelope (minus any existing

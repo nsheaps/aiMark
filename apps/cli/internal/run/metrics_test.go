@@ -59,10 +59,10 @@ func TestMeanAndCV(t *testing.T) {
 
 func TestAggregate(t *testing.T) {
 	metrics := aggregate(
-		[]float64{40, 50, 60},   // ttft
+		[]float64{40, 50, 60},     // ttft
 		[]float64{800, 900, 1000}, // latency
-		[]float64{90, 110},      // decode tps
-		[]float64{9, 11},        // inter-token
+		[]float64{90, 110},        // decode tps
+		[]float64{9, 11},          // inter-token
 	)
 	for _, key := range []string{
 		"ttft_ms_p50", "ttft_ms_p95", "ttft_ms_p99", "ttft_ms_cv",

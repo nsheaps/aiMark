@@ -45,7 +45,7 @@ PIDS+=($!)
 wait_for "http://localhost:$MOCK_PORT/health" mock-llm
 
 echo "==> starting API on :$API_PORT (sqlite: $WORK/e2e.sqlite)"
-PORT=$API_PORT AIMARK_DB="$WORK/e2e.sqlite" bun services/api/entrypoints/bun.ts &
+PORT=$API_PORT AIMARK_DB_PATH="$WORK/e2e.sqlite" bun services/api/entrypoints/bun.ts &
 PIDS+=($!)
 wait_for "http://localhost:$API_PORT/v1/health" api
 
@@ -70,14 +70,15 @@ cat "$WORK/submit.out"
 echo "==> run detail is served"
 curl -fsS "http://localhost:$API_PORT/v1/runs/$RUN_ID" >"$WORK/detail.json" || fail "run detail 404"
 [ "$(jq -r '.source' "$WORK/detail.json")" = "ci" ] || fail "API lost the ci source flag"
-jq -e '.scores.composite > 0' "$WORK/detail.json" >/dev/null || fail "server-side scores missing"
+jq -e '.composite > 0 and (.scores | length) > 0' "$WORK/detail.json" >/dev/null \
+  || fail "server-side scores missing"
 
 echo "==> CI flagging: default leaderboard must HIDE the ci run"
-DEFAULT_COUNT=$(curl -fsS "http://localhost:$API_PORT/v1/leaderboard?suite=sprint&version=1&track=hosted" | jq "[.rows[] | select(.run_id == \"$RUN_ID\")] | length")
+DEFAULT_COUNT=$(curl -fsS "http://localhost:$API_PORT/v1/leaderboard?suite=sprint&version=1&track=local" | jq "[.rows[] | select(.run_id == \"$RUN_ID\")] | length")
 [ "$DEFAULT_COUNT" = "0" ] || fail "ci-sourced run leaked into the default leaderboard"
 
 echo "==> CI flagging: include_ci=true must SHOW it"
-CI_ROW=$(curl -fsS "http://localhost:$API_PORT/v1/leaderboard?suite=sprint&version=1&track=hosted&include_ci=true" | jq "[.rows[] | select(.run_id == \"$RUN_ID\")] | first")
+CI_ROW=$(curl -fsS "http://localhost:$API_PORT/v1/leaderboard?suite=sprint&version=1&track=local&include_ci=true" | jq "[.rows[] | select(.run_id == \"$RUN_ID\")] | first")
 [ "$(echo "$CI_ROW" | jq -r '.source')" = "ci" ] || fail "run missing from include_ci leaderboard"
 
 echo "==> claim token works (anonymous claim → delete)"

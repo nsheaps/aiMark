@@ -7,9 +7,9 @@ import (
 
 func TestParse(t *testing.T) {
 	cases := []struct {
-		in            string
+		in             string
 		adapter, model string
-		wantErr       bool
+		wantErr        bool
 	}{
 		{in: "ollama:llama3.1:8b", adapter: "ollama", model: "llama3.1:8b"},
 		{in: "openai:gpt-4o-mini", adapter: "openai", model: "gpt-4o-mini"},

@@ -75,9 +75,11 @@ func parseParams(pairs []string) (map[string]any, error) {
 		if !ok || k == "" {
 			return nil, fmt.Errorf("invalid --param %q (expected k=v)", pair)
 		}
-		switch {
-		case v == "true" || v == "false":
-			params[k] = v == "true"
+		switch v {
+		case "true":
+			params[k] = true
+		case "false":
+			params[k] = false
 		default:
 			if n, err := strconv.ParseFloat(v, 64); err == nil {
 				params[k] = n
@@ -237,7 +239,7 @@ func printScoreCard(out io.Writer, suite suites.Suite, outcome *run.Outcome) {
 	if outcome.Composite > 0 {
 		fmt.Fprintf(out, "\n  COMPOSITE SCORE   %8.0f\n\n", outcome.Composite)
 	} else {
-		fmt.Fprintln(out, "\n  COMPOSITE SCORE   (not computable — metrics missing)\n")
+		fmt.Fprint(out, "\n  COMPOSITE SCORE   (not computable — metrics missing)\n\n")
 	}
 
 	names := make([]string, 0, len(outcome.SubScores))

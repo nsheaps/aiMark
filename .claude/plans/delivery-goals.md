@@ -18,41 +18,41 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 ## G1 — Data contracts
 
 - [x] G1.1 `run.v1` schema (envelope: cli/suite/target/environment/metrics/scores/integrity)
-- [ ] G1.2 `run.v1` **source flag**: `source: user|ci|dev` — CI-originated runs are flagged at submit and excluded from default leaderboards
-- [ ] G1.3 `suite-manifest.v1` schema; sprint-1 manifest validates against it
-- [ ] G1.4 Bidirectional codegen committed: TS (json2ts) AND Go (go-jsonschema); `lint` fails on stale codegen
-- [ ] G1.5 Golden score vectors in `packages/schema/testdata/` passing in BOTH Go and TS test suites
-- [ ] G1.6 Raw per-request `samples` representation (artifact file format) documented in schema package
+- [x] G1.2 `run.v1` **source flag**: `source: user|ci|dev` — CI-originated runs are flagged at submit and excluded from default leaderboards
+- [x] G1.3 `suite-manifest.v1` schema; sprint-1 manifest validates against it
+- [x] G1.4 Bidirectional codegen committed: TS (json2ts) AND Go (go-jsonschema); `lint` fails on stale codegen
+- [x] G1.5 Golden score vectors in `packages/schema/testdata/` passing in BOTH Go and TS test suites
+- [x] G1.6 Raw per-request `samples` representation (artifact file format) documented in schema package
 
 ## G2 — CLI (Phases 1–3 scope)
 
-- [ ] G2.1 `aimark detect` — hardware (CPU/RAM/GPU/unified-memory, 3 OS, degrade-to-unknown) + runtime discovery; canonical `hardware_profile_id` hash
-- [ ] G2.2 `aimark doctor` — environment sanity checks
-- [ ] G2.3 `aimark suites list|info` — embedded suite manifests (go:embed from packages/suites)
-- [ ] G2.4 `aimark run <suite> --target <t>` — warmups, N reps, stream-event TTFT, monotonic token timestamps, metrics aggregation (p50/p95/p99, CV), provisional Go scoring, result file `~/.local/share/aimark/results/<ulid>.aimark.json`, score card output, `--json`/`--quiet`
-- [ ] G2.5 Adapters: OpenAI-compatible (covers vLLM/LM Studio/llama.cpp/OpenRouter/OpenAI) + native Ollama (digest/quantization metadata)
-- [ ] G2.6 `aimark results list|show|export`
-- [ ] G2.7 `aimark submit` (offline-first, `--all-pending`), anonymous; sends source flag (auto-detect CI env); claim token printed + stored
-- [ ] G2.8 HMAC integrity block (canonical JSON, embedded dev keygen, rotation structure)
-- [ ] G2.9 `--estimate` for hosted targets (projected cost)
-- [ ] G2.10 `aimark run --sweep sweep.yaml` — parameter matrix, shared sweep_id (Phase 3)
-- [ ] G2.11 Native hosted adapters: anthropic, google, bedrock (Phase 3)
-- [ ] G2.12 Forge sandbox: goja JS interpreter, no I/O, instruction/time caps (Phase 3)
-- [ ] G2.13 `login|logout|whoami` GitHub device flow (Phase 2) — code structure; e2e [B] on OAuth app
+- [x] G2.1 `aimark detect` — hardware (CPU/RAM/GPU/unified-memory, 3 OS, degrade-to-unknown) + runtime discovery; canonical `hardware_profile_id` hash
+- [x] G2.2 `aimark doctor` — environment sanity checks
+- [x] G2.3 `aimark suites list|info` — embedded suite manifests (go:embed from packages/suites)
+- [x] G2.4 `aimark run <suite> --target <t>` — warmups, N reps, stream-event TTFT, monotonic token timestamps, metrics aggregation (p50/p95/p99, CV), provisional Go scoring, result file `~/.local/share/aimark/results/<ulid>.aimark.json`, score card output, `--json`/`--quiet`
+- [x] G2.5 Adapters: OpenAI-compatible (covers vLLM/LM Studio/llama.cpp/OpenRouter/OpenAI) + native Ollama (digest/quantization metadata)
+- [x] G2.6 `aimark results list|show|export`
+- [x] G2.7 `aimark submit` (offline-first, `--all-pending`), anonymous; sends source flag (auto-detect CI env); claim token printed + stored
+- [x] G2.8 HMAC integrity block (canonical JSON, embedded dev keygen, rotation structure)
+- [x] G2.9 `--estimate` for hosted targets (projected cost)
+- [x] G2.10 `aimark run --sweep sweep.yaml` — parameter matrix, shared sweep_id (Phase 3)
+- [x] G2.11 Native hosted adapters: anthropic, google, bedrock (Phase 3)
+- [x] G2.12 Forge sandbox: goja JS interpreter, no I/O, instruction/time caps (Phase 3)
+- [x] G2.13 `login|logout|whoami` GitHub device flow (Phase 2) — code structure; e2e [B] on OAuth app
 
 ## G3 — API (Phases 1–3 scope)
 
-- [ ] G3.1 Drizzle schema (suites, models, runtimes, hardware_profiles, users, runs, scores, metrics, artifacts, leaderboard_agg) on bun:sqlite (dev/test) + D1 (prod); migrations
-- [ ] G3.2 POST /v1/runs pipeline: schema validate → known suite/version → HMAC + CLI-version check → payload-hash dedup → plausibility bounds → canonical recompute (packages/scoring) → persist → returns {run_id, status, scores, claim_token, public_url}
-- [ ] G3.3 GET /v1/leaderboard?suite&version&track + dimension filters; **excludes source=ci and flagged runs by default** (`include_ci=true` opt-in)
-- [ ] G3.4 GET /v1/runs/:id; PATCH /v1/runs/:id (claim/visibility/delete via claim token)
-- [ ] G3.5 GET /v1/suites; GET /v1/compare?ids=; GET /v1/models, /v1/hardware (+summaries)
-- [ ] G3.6 GET /v1/params/impact (effect sizes across submissions, Phase 3)
-- [ ] G3.7 Rate limiting: sliding window per hashed IP (KV in prod, memory/sqlite in dev)
-- [ ] G3.8 Artifacts: presign endpoint + blob interface (R2 prod / filesystem dev)
-- [ ] G3.9 Statistical plausibility + >4σ outlier flagging; integrity tiers unverified/claimed/verified (Phase 3)
-- [ ] G3.10 GitHub OAuth web + device flow, /v1/me, profiles (Phase 2) — code structure; e2e [B] on OAuth app
-- [ ] G3.11 Aggregate refresh admin endpoint (GitHub Actions cron compatible)
+- [x] G3.1 Drizzle schema (suites, models, runtimes, hardware_profiles, users, runs, scores, metrics, artifacts, leaderboard_agg) on bun:sqlite (dev/test) + D1 (prod); migrations
+- [x] G3.2 POST /v1/runs pipeline: schema validate → known suite/version → HMAC + CLI-version check → payload-hash dedup → plausibility bounds → canonical recompute (packages/scoring) → persist → returns {run_id, status, scores, claim_token, public_url}
+- [x] G3.3 GET /v1/leaderboard?suite&version&track + dimension filters; **excludes source=ci and flagged runs by default** (`include_ci=true` opt-in)
+- [x] G3.4 GET /v1/runs/:id; PATCH /v1/runs/:id (claim/visibility/delete via claim token)
+- [x] G3.5 GET /v1/suites; GET /v1/compare?ids=; GET /v1/models, /v1/hardware (+summaries)
+- [x] G3.6 GET /v1/params/impact (effect sizes across submissions, Phase 3)
+- [x] G3.7 Rate limiting: sliding window per hashed IP (KV in prod, memory/sqlite in dev)
+- [~] G3.8 (in-memory blob store + interface seam; R2 binding + presign endpoint pending) Artifacts: presign endpoint + blob interface (R2 prod / filesystem dev)
+- [~] G3.9 (manifest plausibility bounds + flagging done; cross-cohort 4σ outlier detection pending) Statistical plausibility + >4σ outlier flagging; integrity tiers unverified/claimed/verified (Phase 3)
+- [x] G3.10 GitHub OAuth web + device flow, /v1/me, profiles (Phase 2) — code structure; e2e [B] on OAuth app
+- [x] G3.11 Aggregate refresh admin endpoint (GitHub Actions cron compatible)
 
 ## G4 — Web (Phases 1–2 scope)
 
@@ -67,7 +67,7 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 
 ## G5 — Suites (data)
 
-- [ ] G5.1 Sprint-1 frozen: prompts, protocol, reference baselines, weights (validates against suite-manifest.v1)
+- [x] G5.1 Sprint-1 frozen: prompts, protocol, reference baselines, weights (validates against suite-manifest.v1)
 - [ ] G5.2 Gauntlet-1: math/extraction/instruction tasks + objective graders (Phase 2)
 - [ ] G5.3 Marathon-1: concurrency 1/4/16 protocol (Phase 2)
 - [ ] G5.4 Deep Dive-1: context-length ladder + needle tasks (Phase 3)
@@ -76,10 +76,10 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 
 ## G6 — E2E CI (owner requirement)
 
-- [ ] G6.1 `tools/mock-llm`: deterministic OpenAI-compatible streaming server (no model download) for CI
-- [ ] G6.2 `e2e.yaml`: build CLI → `aimark run` against mock-llm → local API (bun+sqlite) → **anonymous submit** → assert run persisted, scores recomputed, claim token works
-- [ ] G6.3 E2E asserts **CI flagging**: submitted run has source=ci; default leaderboard hides it; `include_ci=true` shows it
-- [ ] G6.4 E2E exercises real-Ollama path on a schedule/manual dispatch (tiny model), not on every PR
+- [x] G6.1 `tools/mock-llm`: deterministic OpenAI-compatible streaming server (no model download) for CI
+- [x] G6.2 `e2e.yaml`: build CLI → `aimark run` against mock-llm → local API (bun+sqlite) → **anonymous submit** → assert run persisted, scores recomputed, claim token works
+- [x] G6.3 E2E asserts **CI flagging**: submitted run has source=ci; default leaderboard hides it; `include_ci=true` shows it
+- [x] G6.4 E2E exercises real-Ollama path on a schedule/manual dispatch (tiny model), not on every PR
 - [ ] G6.5 E2E green in CI on this branch
 
 ## G7 — Auto-updating docs images (owner requirement)

@@ -183,9 +183,7 @@
       "indexes": {
         "runs_payload_sha256_unique": {
           "name": "runs_payload_sha256_unique",
-          "columns": [
-            "payload_sha256"
-          ],
+          "columns": ["payload_sha256"],
           "isUnique": true
         }
       },
@@ -223,10 +221,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "scores_run_id_name_pk": {
-          "columns": [
-            "run_id",
-            "name"
-          ],
+          "columns": ["run_id", "name"],
           "name": "scores_run_id_name_pk"
         }
       },
@@ -269,10 +264,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "suites_id_version_pk": {
-          "columns": [
-            "id",
-            "version"
-          ],
+          "columns": ["id", "version"],
           "name": "suites_id_version_pk"
         }
       },

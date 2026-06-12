@@ -34,7 +34,7 @@ echo "==> build CLI + start stack"
 (cd apps/cli && go build -o "$WORK/aimark" ./cmd/aimark)
 MOCK_PORT=$MOCK_PORT MOCK_TTFT_MS=15 MOCK_ITL_MS=3 bun tools/mock-llm/server.ts &
 PIDS+=($!)
-PORT=$API_PORT AIMARK_DB="$WORK/capture.sqlite" bun services/api/entrypoints/bun.ts &
+PORT=$API_PORT AIMARK_DB_PATH="$WORK/capture.sqlite" bun services/api/entrypoints/bun.ts &
 PIDS+=($!)
 wait_for "http://localhost:$MOCK_PORT/health"
 wait_for "http://localhost:$API_PORT/v1/health"
