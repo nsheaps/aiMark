@@ -16,6 +16,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    env:
+      # Deploy steps no-op until the Cloudflare secrets are configured
+      # (see docs/specs/draft/aimark-platform.md "Manual setup required").
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -32,7 +36,7 @@ jobs:
       # Requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID repo secrets
       # (see docs/specs/draft/aimark-platform.md "Manual setup required").
       - name: Deploy preview (PR)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && env.HAS_CF == 'true'
         id: preview
         working-directory: services/api
         env:
@@ -44,7 +48,7 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Comment preview URL
-        if: github.event_name == 'pull_request' && steps.preview.outputs.url != ''
+        if: github.event_name == 'pull_request' && env.HAS_CF == 'true' && steps.preview.outputs.url != ''
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: preview
@@ -52,9 +56,13 @@ jobs:
             🚀 Preview deployed: ${{ steps.preview.outputs.url }}
 
       - name: Deploy production (main)
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.HAS_CF == 'true'
         working-directory: services/api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bunx wrangler deploy
+
+      - name: Cloudflare secrets not configured
+        if: env.HAS_CF != 'true'
+        run: echo 'CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets are not set — skipping deploy.'

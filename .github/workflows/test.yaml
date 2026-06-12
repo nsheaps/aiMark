@@ -22,13 +22,25 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      # Auto-commits push as the automation GitHub App when its secrets are
+      # configured on this repo (so pushes retrigger CI); otherwise fall back
+      # to plain checkout + github-actions[bot].
+      HAS_APP: ${{ secrets.AUTOMATION_GITHUB_APP_ID != '' }}
     steps:
       - name: Checkout and authenticate as GitHub App
+        if: env.HAS_APP == 'true'
         id: auth
         uses: nsheaps/github-actions/.github/actions/checkout-as-app@603052841cd49b9fdc99bc32979ff9c45c9b669e # checkout-as-app@main
         with:
           app-id: ${{ secrets.AUTOMATION_GITHUB_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_GITHUB_APP_PRIVATE_KEY }}
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Checkout (no app secrets configured)
+        if: env.HAS_APP != 'true'
+        uses: actions/checkout@v6
+        with:
           ref: ${{ github.head_ref || github.ref }}
 
       - name: Setup mise
@@ -52,8 +64,8 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'chore: `mise run format`'
-          commit_user_name: ${{ steps.auth.outputs.user-name }}
-          commit_user_email: ${{ steps.auth.outputs.user-email }}
+          commit_user_name: ${{ steps.auth.outputs.user-name || 'github-actions[bot]' }}
+          commit_user_email: ${{ steps.auth.outputs.user-email || '41898282+github-actions[bot]@users.noreply.github.com' }}
 
       - name: 'exit 1 # changes detected or lint failed'
         if: ${{ steps.lint.outputs.changed-or-failed == 'true' && ! cancelled() }}
