@@ -1,9 +1,4 @@
-import {
-  DAY_MS,
-  DEFAULT_RATE_LIMIT,
-  type RateLimiter,
-  type RateLimitResult,
-} from "./deps";
+import { DAY_MS, DEFAULT_RATE_LIMIT, type RateLimiter, type RateLimitResult } from "./deps";
 
 /** Structural subset of a Workers KVNamespace, so src stays host-agnostic. */
 export interface KvLike {

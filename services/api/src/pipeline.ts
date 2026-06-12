@@ -46,7 +46,10 @@ export function implausibleMetrics(
   for (const [key, value] of Object.entries(metrics)) {
     const bound = bounds[key];
     if (!bound) continue;
-    if ((bound.min !== undefined && value < bound.min) || (bound.max !== undefined && value > bound.max)) {
+    if (
+      (bound.min !== undefined && value < bound.min) ||
+      (bound.max !== undefined && value > bound.max)
+    ) {
       violations.push(key);
     }
   }

@@ -75,10 +75,7 @@ describe("leaderboard", () => {
     const defaults = await board(app, "suite=sprint&version=1&track=local");
     expect(defaults.rows.map((r) => r.run_id)).toEqual([good.run_id]);
 
-    const withFlagged = await board(
-      app,
-      "suite=sprint&version=1&track=local&include_flagged=true",
-    );
+    const withFlagged = await board(app, "suite=sprint&version=1&track=local&include_flagged=true");
     expect(withFlagged.rows.map((r) => r.run_id).sort()).toEqual(
       [good.run_id, flagged.run_id].sort(),
     );
@@ -157,7 +154,13 @@ describe("suites, compare, models, hardware, params", () => {
     const res = await app.request("/v1/models");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      models: { model: string; suite: string; track: string; n: number; median_composite: number }[];
+      models: {
+        model: string;
+        suite: string;
+        track: string;
+        n: number;
+        median_composite: number;
+      }[];
     };
     expect(body.models.length).toBe(1);
     const entry = body.models[0];
@@ -194,7 +197,9 @@ describe("suites, compare, models, hardware, params", () => {
       });
     }
 
-    const res = await app.request("/v1/params/impact?suite=sprint&version=1&track=local&param=num_ctx");
+    const res = await app.request(
+      "/v1/params/impact?suite=sprint&version=1&track=local&param=num_ctx",
+    );
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       param: string;
