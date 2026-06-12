@@ -8,6 +8,7 @@ CHANGELOG.md
 # Build outputs
 dist/
 **/dist/
+dist-cli/
 *.tsbuildinfo
 .astro/
 
