@@ -12,7 +12,7 @@
 > full system details. **Models are test assets** (versioned parts of the benchmark, like
 > 3DMark's scenes), not user choices. **Cloud APIs are demoted to background monitoring**
 > — a reference series to compare local results against, not a user-facing track.
-> The pick-your-own-model/suite machinery below survives as an *advanced mode*
+> The pick-your-own-model/suite machinery below survives as an _advanced mode_
 > (`aimark run …`), off the official class leaderboards.
 
 ## 0. The zero-choice benchmark (bench-1)
@@ -34,10 +34,10 @@ not Time Spy Extreme).
 
 | Class           | Usable accel. memory | Test model (pinned GGUF, one family for a clean scaling story) | Download |
 | --------------- | -------------------- | -------------------------------------------------------------- | -------- |
-| **Compact**     | CPU-only or < 6 GB   | Qwen2.5-1.5B-Instruct Q4_K_M                                    | ~1 GB    |
-| **Mainstream**  | 6–16 GB              | Qwen2.5-7B-Instruct Q4_K_M                                      | ~4.7 GB  |
-| **Performance** | 16–24 GB             | Qwen2.5-14B-Instruct Q4_K_M                                     | ~9 GB    |
-| **Ultra**       | ≥ 24 GB              | Qwen2.5-32B-Instruct Q4_K_M                                     | ~19 GB   |
+| **Compact**     | CPU-only or < 6 GB   | Qwen2.5-1.5B-Instruct Q4_K_M                                   | ~1 GB    |
+| **Mainstream**  | 6–16 GB              | Qwen2.5-7B-Instruct Q4_K_M                                     | ~4.7 GB  |
+| **Performance** | 16–24 GB             | Qwen2.5-14B-Instruct Q4_K_M                                    | ~9 GB    |
+| **Ultra**       | ≥ 24 GB              | Qwen2.5-32B-Instruct Q4_K_M                                    | ~19 GB   |
 
 Every class **also** runs the Compact model as a cross-class anchor cell (cheap, already
 cached or tiny) so any two machines share at least one identical workload.
@@ -85,7 +85,7 @@ layer.
 3. **Showing off** — shareable score cards, class rank, "top rig" boards.
 
 Standardized task sets (the SWE-bench/HLE genre) are explicitly NOT the product — they
-may be borrowed as *load generators* to produce realistic measurement workloads, never
+may be borrowed as _load generators_ to produce realistic measurement workloads, never
 as a graded quality competition.
 
 ### Cloud APIs = monitoring only
