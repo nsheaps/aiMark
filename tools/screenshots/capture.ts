@@ -17,21 +17,22 @@ const apiUrl = process.env.CAPTURE_API_URL ?? "http://localhost:8787";
 
 mkdirSync(out, { recursive: true });
 
-// Find a seeded run so the detail page has content.
-const board = (await (
-  await fetch(`${apiUrl}/v1/leaderboard?suite=sprint&version=1&track=local`)
-).json()) as { rows: Array<{ run_id: string }> };
-const runId = board.rows[0]?.run_id;
+// Find a seeded benchmark so the system-detail page has content.
+const systems = (await (await fetch(
+  `${apiUrl}/v1/leaderboard/systems?program=bench&version=1&class=ultra`,
+)).json().catch(() => ({ rows: [] }))) as { rows: Array<{ bench_id: string }> };
+const benchId = systems.rows[0]?.bench_id;
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
 const shots: Array<[string, string]> = [
   ["web-home", `${webUrl}/`],
-  ["web-leaderboard", `${webUrl}/leaderboard/sprint/1`],
-  ["web-glossary", `${webUrl}/docs/glossary`],
+  ["web-leaderboard-systems", `${webUrl}/leaderboard/systems/ultra/`],
+  ["web-model-fit", `${webUrl}/model-fit/`],
+  ["web-glossary", `${webUrl}/docs/glossary/`],
 ];
-if (runId) shots.push(["web-run-detail", `${webUrl}/run/?id=${encodeURIComponent(runId)}`]);
+if (benchId) shots.push(["web-bench-detail", `${webUrl}/bench/?id=${encodeURIComponent(benchId)}`]);
 
 for (const [name, url] of shots) {
   await page.goto(url, { waitUntil: "networkidle" });

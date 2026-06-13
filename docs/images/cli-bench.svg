@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
-<svg width="840.00" height="990.00" xmlns="http://www.w3.org/2000/svg">
+<svg width="306.67" height="83.00" xmlns="http://www.w3.org/2000/svg">
 <style>
 @font-face {
 	font-family: &apos;JetBrains Mono&apos;;
@@ -8,63 +8,9 @@
 	font-weight: normal;
 	font-style: normal;
 }
-</style><rect width="840.00" height="990.00" fill="#282a36" x="0.00px" y="0.00px"/>
+</style><rect width="306.67" height="83.00" fill="#282a36" x="0.00px" y="0.00px"/>
 <g font-family="JetBrains Mono" font-size="14.00px" fill="#f8f8f2" clip-path="url(#terminalMask)">
-<text x="20.00px" y="51.80px" xml:space="preserve">aimark sprint-1 — target openai:mock-1
-</text><text x="20.00px" y="68.60px" xml:space="preserve">[1/31] warmup greet rep 0  ttft=19ms latency=242ms tps=287.8
-</text><text x="20.00px" y="85.40px" xml:space="preserve">[2/31] greet rep 0  ttft=16ms latency=223ms tps=309.5
-</text><text x="20.00px" y="102.20px" xml:space="preserve">[3/31] summarize rep 0  ttft=16ms latency=221ms tps=311.7
-</text><text x="20.00px" y="119.00px" xml:space="preserve">[4/31] rewrite rep 0  ttft=16ms latency=220ms tps=315.0
-</text><text x="20.00px" y="135.80px" xml:space="preserve">[5/31] list rep 0  ttft=16ms latency=220ms tps=314.3
-</text><text x="20.00px" y="152.60px" xml:space="preserve">[6/31] explain rep 0  ttft=16ms latency=222ms tps=310.8
-</text><text x="20.00px" y="169.40px" xml:space="preserve">[7/31] translate rep 0  ttft=16ms latency=221ms tps=311.7
-</text><text x="20.00px" y="186.20px" xml:space="preserve">[8/31] classify rep 0  ttft=16ms latency=223ms tps=309.6
-</text><text x="20.00px" y="203.00px" xml:space="preserve">[9/31] continue rep 0  ttft=16ms latency=222ms tps=311.0
-</text><text x="20.00px" y="219.80px" xml:space="preserve">[10/31] advise rep 0  ttft=16ms latency=221ms tps=312.3
-</text><text x="20.00px" y="236.60px" xml:space="preserve">[11/31] define rep 0  ttft=16ms latency=221ms tps=312.4
-</text><text x="20.00px" y="253.40px" xml:space="preserve">[12/31] greet rep 1  ttft=16ms latency=220ms tps=313.5
-</text><text x="20.00px" y="270.20px" xml:space="preserve">[13/31] summarize rep 1  ttft=16ms latency=219ms tps=314.5
-</text><text x="20.00px" y="287.00px" xml:space="preserve">[14/31] rewrite rep 1  ttft=16ms latency=220ms tps=315.0
-</text><text x="20.00px" y="303.80px" xml:space="preserve">[15/31] list rep 1  ttft=16ms latency=220ms tps=313.3
-</text><text x="20.00px" y="320.60px" xml:space="preserve">[16/31] explain rep 1  ttft=16ms latency=222ms tps=310.6
-</text><text x="20.00px" y="337.40px" xml:space="preserve">[17/31] translate rep 1  ttft=16ms latency=221ms tps=311.8
-</text><text x="20.00px" y="354.20px" xml:space="preserve">[18/31] classify rep 1  ttft=16ms latency=221ms tps=313.4
-</text><text x="20.00px" y="371.00px" xml:space="preserve">[19/31] continue rep 1  ttft=16ms latency=221ms tps=311.3
-</text><text x="20.00px" y="387.80px" xml:space="preserve">[20/31] advise rep 1  ttft=16ms latency=221ms tps=311.7
-</text><text x="20.00px" y="404.60px" xml:space="preserve">[21/31] define rep 1  ttft=16ms latency=220ms tps=313.1
-</text><text x="20.00px" y="421.40px" xml:space="preserve">[22/31] greet rep 2  ttft=16ms latency=220ms tps=313.9
-</text><text x="20.00px" y="438.20px" xml:space="preserve">[23/31] summarize rep 2  ttft=16ms latency=220ms tps=313.5
-</text><text x="20.00px" y="455.00px" xml:space="preserve">[24/31] rewrite rep 2  ttft=16ms latency=221ms tps=311.3
-</text><text x="20.00px" y="471.80px" xml:space="preserve">[25/31] list rep 2  ttft=16ms latency=220ms tps=313.8
-</text><text x="20.00px" y="488.60px" xml:space="preserve">[26/31] explain rep 2  ttft=16ms latency=219ms tps=315.2
-</text><text x="20.00px" y="505.40px" xml:space="preserve">[27/31] translate rep 2  ttft=16ms latency=220ms tps=313.0
-</text><text x="20.00px" y="522.20px" xml:space="preserve">[28/31] classify rep 2  ttft=16ms latency=220ms tps=313.4
-</text><text x="20.00px" y="539.00px" xml:space="preserve">[29/31] continue rep 2  ttft=16ms latency=221ms tps=312.2
-</text><text x="20.00px" y="555.80px" xml:space="preserve">[30/31] advise rep 2  ttft=16ms latency=221ms tps=312.3
-</text><text x="20.00px" y="572.60px" xml:space="preserve">[31/31] define rep 2  ttft=16ms latency=222ms tps=310.9
-</text><text x="20.00px" y="589.40px" xml:space="preserve">saved /tmp/tmp.js44TLl7Wu/aimark-data/results/01KTZ773ZQ53E7BK8DNQTN8DVP.aimark.json
-</text><text x="20.00px" y="606.20px" xml:space="preserve">========================================================
-</text><text x="20.00px" y="623.00px" xml:space="preserve">  aiMark sprint-1 — Sprint 1
-</text><text x="20.00px" y="639.80px" xml:space="preserve">  target: mock-1 on openai-compat
-</text><text x="20.00px" y="656.60px" xml:space="preserve">========================================================
-</text><text x="20.00px" y="673.40px" xml:space="preserve">
-</text><text x="20.00px" y="690.20px" xml:space="preserve">  COMPOSITE SCORE       5240
-</text><text x="20.00px" y="707.00px" xml:space="preserve">
-</text><text x="20.00px" y="723.80px" xml:space="preserve">  consistency           13635
-</text><text x="20.00px" y="740.60px" xml:space="preserve">  performance            3810
-</text><text x="20.00px" y="757.40px" xml:space="preserve">
-</text><text x="20.00px" y="774.20px" xml:space="preserve">  key metrics
-</text><text x="20.00px" y="791.00px" xml:space="preserve">    ttft_ms_p50                 15.76
-</text><text x="20.00px" y="807.80px" xml:space="preserve">    ttft_ms_p95                 16.29
-</text><text x="20.00px" y="824.60px" xml:space="preserve">    latency_ms_p50             220.70
-</text><text x="20.00px" y="841.40px" xml:space="preserve">    latency_ms_p95             222.26
-</text><text x="20.00px" y="858.20px" xml:space="preserve">    decode_tps_mean            312.53
-</text><text x="20.00px" y="875.00px" xml:space="preserve">    inter_token_ms_mean          3.20
-</text><text x="20.00px" y="891.80px" xml:space="preserve">
-</text><text x="20.00px" y="908.60px" xml:space="preserve">  run id: 01KTZ773ZQ53E7BK8DNQTN8DVP (source: dev, provisional — server recompute is canonical)
-</text><text x="20.00px" y="925.40px" xml:space="preserve">========================================================
-</text><text x="20.00px" y="942.20px" xml:space="preserve">
-</text><text x="20.00px" y="959.00px" xml:space="preserve">Submit with: aimark submit 01KTZ773ZQ53E7BK8DNQTN8DVP
+<text x="20.00px" y="51.80px" xml:space="preserve">Error: unknown flag: --no-color
 </text>
 </g>
 <svg x="0.00px" y="0.00px"><circle cx="13.50" cy="12.00" r="5.50" fill="#FF5A54"/><circle cx="32.50" cy="12.00" r="5.50" fill="#E6BF29"/><circle cx="51.50" cy="12.00" r="5.50" fill="#52C12B"/></svg></svg>

@@ -34,12 +34,15 @@ echo "==> build CLI + start stack"
 (cd apps/cli && go build -o "$WORK/aimark" ./cmd/aimark)
 MOCK_PORT=$MOCK_PORT MOCK_TTFT_MS=15 MOCK_ITL_MS=3 bun tools/mock-llm/server.ts &
 PIDS+=($!)
-PORT=$API_PORT AIMARK_DB_PATH="$WORK/capture.sqlite" bun services/api/entrypoints/bun.ts &
+# High rate limit: seeding submits many runs from one IP.
+PORT=$API_PORT AIMARK_DB_PATH="$WORK/capture.sqlite" AIMARK_RATE_LIMIT=100000 \
+  bun services/api/entrypoints/bun.ts &
 PIDS+=($!)
 wait_for "http://localhost:$MOCK_PORT/health"
 wait_for "http://localhost:$API_PORT/v1/health"
 
-echo "==> seed leaderboard with plausible user runs"
+echo "==> seed systems leaderboards (benchmarks) + advanced runs (model-fit)"
+bun tools/seed/seed-benchmarks.ts --api "http://localhost:$API_PORT"
 bun tools/seed/seed.ts --api "http://localhost:$API_PORT"
 
 echo "==> CLI captures (freeze → SVG)"
@@ -55,12 +58,13 @@ capture_cli() { # name, command...
   (cd apps/cli && $FREEZE "$WORK/$name.txt" "${FOPTS[@]}" --language text -o "$OUT/$name.svg")
 }
 
-capture_cli cli-suites "$WORK/aimark" suites list
 capture_cli cli-detect "$WORK/aimark" detect
-AIMARK_RUN_OUT="$WORK/runout.txt"
-"$WORK/aimark" run sprint-1 --target openai:mock-1 --target-url "http://localhost:$MOCK_PORT/v1" \
-  --reps 3 --warmups 1 --source dev >"$AIMARK_RUN_OUT" 2>&1 || true
-(cd apps/cli && $FREEZE "$AIMARK_RUN_OUT" "${FOPTS[@]}" --language text -o "$OUT/cli-run.svg")
+# The headline capture: the zero-choice `aimark` run against the mock runtime.
+AIMARK_BENCH_OUT="$WORK/benchout.txt"
+AIMARK_DATA_DIR="$WORK/cli-data" CI=true \
+  AIMARK_BENCH_RUNTIME_URL="http://localhost:$MOCK_PORT/v1" AIMARK_BENCH_FAST=1 \
+  "$WORK/aimark" bench --no-upload --no-color >"$AIMARK_BENCH_OUT" 2>&1 || true
+(cd apps/cli && $FREEZE "$AIMARK_BENCH_OUT" "${FOPTS[@]}" --language text -o "$OUT/cli-bench.svg")
 
 echo "==> website screenshots (Playwright)"
 # Bake the local API origin into the build (meta aimark-api) so client

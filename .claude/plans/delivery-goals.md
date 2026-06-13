@@ -130,5 +130,5 @@ budgets; central cron + optional user-run cloud monitoring; advanced mode kept.
 - [x] GB4 API: programs/benchmarks tables, POST /v1/benchmarks (cell verification + recompute), /v1/leaderboard/systems, /v1/model-fit, /v1/monitor/series
 - [x] GB5 Web: home pivot, class leaderboards, /bench detail, /model-fit, /cloud, methodology update
 - [x] GB6 CI: e2e-bench (mock, every PR; PASSES locally) + e2e-bench-real (nightly) + cloud-monitor.yaml cron [B keys]
-- [ ] GB7 README + docs images regenerated for the pivot; spec reconciled
-- [ ] GB8 Full verification: mise run check, e2e.sh, e2e-bench.sh, CI green
+- [x] GB7 README + docs images regenerated for the pivot (cli-bench, systems board, bench detail, model-fit, glossary); benchmark seeder added
+- [~] GB8 Verified locally: mise run check, e2e.sh, e2e-bench.sh all pass; CI pending push

@@ -19,17 +19,21 @@ aimark                       # that's it: detect → classify → run → System
 
 > These images are regenerated automatically by the [Docs Images workflow](.github/workflows/docs-images.yaml) — CLI output captured with freeze, site screenshots taken with Playwright against a seeded local stack.
 
-The CLI benchmarking a model and printing its score card:
+`aimark` — one command: detect, classify, run the program, score the machine:
 
-![aimark run output](docs/images/cli-run.svg)
+![aimark bench output](docs/images/cli-bench.svg)
 
-The public leaderboard (flagged and CI-sourced runs are excluded by default — toggles reveal them):
+The class leaderboard — whole machines ranked by System Score within a capability class (flagged and CI-sourced runs are hidden by default):
 
-![Sprint 1 leaderboard](docs/images/web-leaderboard.png)
+![Ultra systems leaderboard](docs/images/web-leaderboard-systems.png)
 
-Every run gets a shareable detail page with scores, hardware, metrics, and integrity status:
+Each benchmark gets a shareable detail page: System Score, why-this-class, hardware, and per-cell drill-down:
 
-![Run detail page](docs/images/web-run-detail.png)
+![Benchmark detail page](docs/images/web-bench-detail.png)
+
+Model Fit answers "what runs well on hardware like mine?" from community data:
+
+![Model fit matrix](docs/images/web-model-fit.png)
 
 The novice-first glossary — every piece of jargon site-wide gets a hover definition:
 
