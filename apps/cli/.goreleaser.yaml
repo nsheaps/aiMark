@@ -1,0 +1,62 @@
+# goreleaser config for the aimark CLI.
+# Run from apps/cli (the release-cli workflow does `cd apps/cli`).
+# CLI releases own the repo's plain `v*` tags; web releases use `web-v*`
+# (release-it) so the two streams never collide.
+version: 2
+
+project_name: aimark
+
+dist: ../../dist-cli
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/aimark
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/nsheaps/aimark/apps/cli/internal/version.Version={{.Version}}
+      - -X github.com/nsheaps/aimark/apps/cli/internal/version.Commit={{.ShortCommit}}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github-native
+
+release:
+  draft: false
+  prerelease: auto
+
+# Homebrew tap publishing — prepared but disabled: the tap repository isn't
+# reachable from this automation yet (owner action: create/grant
+# nsheaps/homebrew-tap, set skip_upload to false, and provide
+# HOMEBREW_TAP_TOKEN with repo scope in release-cli.yaml).
+homebrew_casks:
+  - name: aimark
+    repository:
+      owner: nsheaps
+      name: homebrew-tap
+      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
+    skip_upload: true
+    homepage: https://aimark.dev
+    description: Like 3DMark, but for AI — benchmark AI models across runtimes and hardware
+    license: NOASSERTION

@@ -1,0 +1,88 @@
+{
+  "id": "forge",
+  "version": 1,
+  "status": "frozen",
+  "title": "Forge 1",
+  "description": "Implement-from-spec coding tasks graded by hidden JavaScript tests executed in a sandboxed VM (no host access, wall-clock interrupt). Quality dominates the composite 4:1 over performance.",
+  "tracks": ["local", "hosted"],
+  "reference": {
+    "label": "synthetic-1",
+    "notes": "v1 anchors the 1000-point scale to round-number synthetic baselines (0.7 accuracy, 100 tok/s decode) rather than a measured reference rig. A future suite version will re-anchor to measured hardware; per the versioning rules that resets the leaderboard."
+  },
+  "protocol": {
+    "warmup_requests": 0,
+    "repetitions": 2,
+    "request_timeout_ms": 120000,
+    "streaming": true,
+    "decoding": {
+      "temperature": 0,
+      "max_tokens": 1024
+    }
+  },
+  "tasks": [
+    {
+      "id": "slugify",
+      "prompt": "Write a JavaScript function slugify(s) that converts a string into a URL slug: lowercase everything, replace every maximal run of characters that are not ASCII letters or digits with a single hyphen, and strip leading and trailing hyphens. slugify(\"Hello World\") returns \"hello-world\". Use standard JavaScript (no imports). Reply with only the code in a fenced code block.",
+      "grading": {
+        "kind": "js_tests",
+        "tests": "assert(typeof slugify === \"function\", \"slugify must be defined\");\nassert(slugify(\"Hello World\") === \"hello-world\", \"basic two words\");\nassert(slugify(\"  Foo   Bar  \") === \"foo-bar\", \"collapses whitespace runs\");\nassert(slugify(\"C++ & Go!\") === \"c-go\", \"strips symbols and trims hyphens\");\nassert(slugify(\"already-slugged\") === \"already-slugged\", \"idempotent on slugs\");\nassert(slugify(\"MiXeD CaSe 123\") === \"mixed-case-123\", \"keeps digits\");\nassert(slugify(\"\") === \"\", \"empty string\");"
+      }
+    },
+    {
+      "id": "fizzbuzz",
+      "prompt": "Write a JavaScript function fizzbuzz(n) that returns an array for the integers 1 through n where multiples of 3 become the string \"Fizz\", multiples of 5 become \"Buzz\", multiples of both become \"FizzBuzz\", and every other integer stays a number. fizzbuzz(0) returns an empty array. Use standard JavaScript (no imports). Reply with only the code in a fenced code block.",
+      "grading": {
+        "kind": "js_tests",
+        "tests": "assert(typeof fizzbuzz === \"function\", \"fizzbuzz must be defined\");\nvar r = fizzbuzz(15);\nassert(Array.isArray(r), \"returns an array\");\nassert(r.length === 15, \"length 15\");\nassert(r[0] === 1, \"1 stays a number\");\nassert(r[2] === \"Fizz\", \"3 -> Fizz\");\nassert(r[4] === \"Buzz\", \"5 -> Buzz\");\nassert(r[5] === \"Fizz\", \"6 -> Fizz\");\nassert(r[9] === \"Buzz\", \"10 -> Buzz\");\nassert(r[10] === 11, \"11 stays a number\");\nassert(r[14] === \"FizzBuzz\", \"15 -> FizzBuzz\");\nassert(fizzbuzz(0).length === 0, \"n=0 gives empty array\");"
+      }
+    },
+    {
+      "id": "is-balanced",
+      "prompt": "Write a JavaScript function isBalanced(s) that returns true when the round, square, and curly brackets in s — \"()\", \"[]\", \"{}\" — are correctly matched and properly nested, and false otherwise. All non-bracket characters are ignored, and an empty string is balanced. Use standard JavaScript (no imports). Reply with only the code in a fenced code block.",
+      "grading": {
+        "kind": "js_tests",
+        "tests": "assert(typeof isBalanced === \"function\", \"isBalanced must be defined\");\nassert(isBalanced(\"()\") === true, \"simple pair\");\nassert(isBalanced(\"([{}])\") === true, \"nested\");\nassert(isBalanced(\"(]\") === false, \"mismatched pair\");\nassert(isBalanced(\"((\") === false, \"unclosed\");\nassert(isBalanced(\")(\") === false, \"wrong order\");\nassert(isBalanced(\"a(b)c[d]{e}\") === true, \"ignores other characters\");\nassert(isBalanced(\"\") === true, \"empty is balanced\");"
+      }
+    },
+    {
+      "id": "word-freq",
+      "prompt": "Write a JavaScript function wordFreq(s) that counts word frequencies in a string and returns a plain object mapping each word to its count. A word is a maximal run of ASCII letters (a-z, A-Z); digits, punctuation, and whitespace all separate words. Counting is case-insensitive and the keys of the returned object are lowercase. An input with no words returns an empty object. Use standard JavaScript (no imports). Reply with only the code in a fenced code block.",
+      "grading": {
+        "kind": "js_tests",
+        "tests": "assert(typeof wordFreq === \"function\", \"wordFreq must be defined\");\nvar a = wordFreq(\"The cat and the dog\");\nassert(a[\"the\"] === 2, \"case-insensitive counting\");\nassert(a[\"cat\"] === 1 && a[\"dog\"] === 1 && a[\"and\"] === 1, \"counts each word\");\nvar b = wordFreq(\"Hello, hello! WORLD...\");\nassert(b[\"hello\"] === 2, \"punctuation separates words\");\nassert(b[\"world\"] === 1, \"trailing punctuation stripped\");\nassert(Object.keys(wordFreq(\"\")).length === 0, \"empty string gives empty object\");\nassert(Object.keys(wordFreq(\"123 ... !!!\")).length === 0, \"no letters gives empty object\");"
+      }
+    },
+    {
+      "id": "fib-sequence",
+      "prompt": "Write a JavaScript function fib(n) that returns an array containing the first n Fibonacci numbers, starting from 0 and 1 (so fib(7) returns [0, 1, 1, 2, 3, 5, 8]). fib(0) returns an empty array and fib(1) returns [0]. Use standard JavaScript (no imports). Reply with only the code in a fenced code block.",
+      "grading": {
+        "kind": "js_tests",
+        "tests": "assert(typeof fib === \"function\", \"fib must be defined\");\nassert(JSON.stringify(fib(0)) === \"[]\", \"n=0\");\nassert(JSON.stringify(fib(1)) === \"[0]\", \"n=1\");\nassert(JSON.stringify(fib(2)) === \"[0,1]\", \"n=2\");\nassert(JSON.stringify(fib(7)) === \"[0,1,1,2,3,5,8]\", \"n=7\");\nassert(fib(20)[19] === 4181, \"20th value\");"
+      }
+    },
+    {
+      "id": "deep-get",
+      "prompt": "Write a JavaScript function deepGet(obj, path, fallback) that looks up a dot-separated path (like \"a.b.c\") in a nested object and returns the value found there. If any segment of the path is missing, return fallback instead. Values that are present but falsy (such as 0 or \"\") must still be returned, not replaced by the fallback. Numeric segments index into arrays (deepGet({xs: [10, 20]}, \"xs.1\") returns 20). Use standard JavaScript (no imports). Reply with only the code in a fenced code block.",
+      "grading": {
+        "kind": "js_tests",
+        "tests": "assert(typeof deepGet === \"function\", \"deepGet must be defined\");\nvar o = { a: { b: { c: 42 } }, arr: [10, 20], z: 0 };\nassert(deepGet(o, \"a.b.c\") === 42, \"nested path\");\nassert(deepGet(o, \"a.b.c\", \"fallback\") === 42, \"fallback unused when present\");\nassert(deepGet(o, \"a.b.missing\", \"none\") === \"none\", \"fallback on missing leaf\");\nassert(deepGet(o, \"q.r.s\", null) === null, \"fallback on missing root segment\");\nassert(deepGet(o, \"arr.1\") === 20, \"array index segments work\");\nassert(deepGet(o, \"z\", -1) === 0, \"falsy values are still found\");\nassert(deepGet(o, \"a.b\").c === 42, \"intermediate object returned\");"
+      }
+    }
+  ],
+  "scoring": {
+    "quality": {
+      "metrics": [{ "key": "quality_accuracy", "reference": 0.7, "weight": 1 }]
+    },
+    "performance": {
+      "metrics": [{ "key": "decode_tps_mean", "reference": 100, "weight": 1 }]
+    },
+    "composite_weights": {
+      "quality": 4,
+      "performance": 1
+    }
+  },
+  "plausibility": {
+    "quality_accuracy": { "min": 0, "max": 1 },
+    "decode_tps_mean": { "min": 0.1, "max": 50000 }
+  }
+}

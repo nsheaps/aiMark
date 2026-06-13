@@ -1,0 +1,338 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import Term from "../../../components/Term.astro";
+import sprintManifest from "../../../../../../packages/suites/sprint-1/manifest.json";
+
+export function getStaticPaths() {
+  return [["sprint", "1"]].map(([suite, version]) => ({ params: { suite, version } }));
+}
+
+const { suite, version } = Astro.params;
+
+// One manifest for now; keyed so additional suites slot in alongside getStaticPaths.
+const manifests: Record<string, typeof sprintManifest> = {
+  "sprint/1": sprintManifest,
+};
+const manifest = manifests[`${suite}/${version}`];
+
+const subScores = Object.keys(manifest.scoring).filter((k) => k !== "composite_weights");
+const title = `${manifest.title} leaderboard`;
+---
+
+<Layout title={`${title} — aiMark`} description={manifest.description}>
+  <div class="container page">
+    <h1>{manifest.title} leaderboard</h1>
+    <p class="lede">{manifest.description}</p>
+    <p class="muted">
+      Suite <code>{suite}</code> version <code>{version}</code> ({manifest.status}) ·
+      {manifest.tasks.length} tasks · {manifest.protocol.repetitions}
+      <Term id="repetition">repetitions</Term> after {manifest.protocol.warmup_requests}
+      <Term id="warmup">warmup</Term> requests · <Term id="streaming">streaming</Term>,
+      <Term id="temperature">temperature</Term>
+      {manifest.protocol.decoding.temperature}
+    </p>
+
+    <div class="callout">
+      <strong>How to read these scores.</strong> Every score is anchored to a frozen
+      <Term id="reference-baseline">reference baseline</Term>: matching the reference earns ~1000
+      points, and twice as good earns ~2000. <Term id="sub-score">Sub-scores</Term> combine into
+      the composite aiMark Score with a weighted <Term id="geometric-mean">geometric mean</Term>,
+      so no single metric dominates. Scores are only comparable within this suite version and
+      <Term id="track">track</Term> — local and hosted boards are separate on purpose.
+    </div>
+
+    <form class="board-controls" aria-label="Leaderboard filters">
+      <fieldset class="track-toggle">
+        <legend>Track</legend>
+        <label><input type="radio" name="track" value="local" checked /> Local</label>
+        <label><input type="radio" name="track" value="hosted" /> Hosted</label>
+      </fieldset>
+      <label class="control-check">
+        <input type="checkbox" id="show-ci" /> Show <Term id="ci-run">CI runs</Term>
+      </label>
+      <label class="control-check">
+        <input type="checkbox" id="show-flagged" /> Show <Term id="flagged-run">flagged</Term>
+      </label>
+      <label class="control-filter">
+        <span>Filter by model</span>
+        <input type="search" id="model-filter" placeholder="e.g. llama3.1" autocomplete="off" />
+      </label>
+    </form>
+
+    <div
+      class="table-wrap"
+      id="board"
+      aria-live="polite"
+      data-suite={suite}
+      data-version={version}
+      data-subscores={subScores.join(",")}
+    >
+      <div class="data-status" role="status"><p>Loading leaderboard…</p></div>
+    </div>
+
+    <p class="muted board-foot">
+      Rows link to full run details — hardware, every metric, and integrity status. Flagged and CI
+      runs are excluded from the default view; toggles above reveal them.
+    </p>
+  </div>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtDate,
+    fmtScore,
+    scoreGrade,
+    setDataStatus,
+    sourceBadge,
+    statusBadge,
+    type LeaderboardRow,
+  } from "../../../scripts/api";
+
+  const board = document.getElementById("board") as HTMLElement;
+  const suite = board.dataset.suite ?? "sprint";
+  const version = board.dataset.version ?? "1";
+  const subScores = (board.dataset.subscores ?? "").split(",").filter(Boolean);
+
+  const form = document.querySelector<HTMLFormElement>(".board-controls");
+  const ciBox = document.getElementById("show-ci") as HTMLInputElement;
+  const flaggedBox = document.getElementById("show-flagged") as HTMLInputElement;
+  const filterInput = document.getElementById("model-filter") as HTMLInputElement;
+
+  // Deep links from /models/ (and elsewhere) prefill the model filter:
+  // /leaderboard/sprint/1/?model=llama3.1
+  const initialModel = new URLSearchParams(location.search).get("model");
+  if (initialModel) filterInput.value = initialModel;
+
+  type SortDir = "asc" | "desc";
+  let rows: LeaderboardRow[] = [];
+  let fetchFailed = false;
+  let sortKey = "composite";
+  let sortDir: SortDir = "desc";
+
+  function currentTrack(): string {
+    const checked = form?.querySelector<HTMLInputElement>('input[name="track"]:checked');
+    return checked?.value ?? "local";
+  }
+
+  function sortValue(row: LeaderboardRow, key: string): string | number {
+    switch (key) {
+      case "model":
+        return (row.model ?? "").toLowerCase();
+      case "runtime":
+        return (row.runtime ?? row.provider ?? "").toLowerCase();
+      case "quantization":
+        return (row.quantization ?? "").toLowerCase();
+      case "created_at":
+        return row.created_at ?? "";
+      case "composite":
+        return row.composite ?? -Infinity;
+      default:
+        return row.scores?.[key] ?? -Infinity;
+    }
+  }
+
+  function render() {
+    if (fetchFailed) {
+      setDataStatus(
+        board,
+        "API unreachable",
+        "We couldn't load the leaderboard — check your connection or try again shortly.",
+      );
+      return;
+    }
+    const needle = filterInput.value.trim().toLowerCase();
+    const visible = rows.filter((r) => !needle || (r.model ?? "").toLowerCase().includes(needle));
+
+    if (visible.length === 0) {
+      setDataStatus(
+        board,
+        rows.length === 0 ? "No runs on this board yet" : "No rows match that filter",
+        rows.length === 0
+          ? "Run the suite and submit a score to claim the first row."
+          : "Try a shorter model name, or clear the filter.",
+      );
+      return;
+    }
+
+    visible.sort((a, b) => {
+      const av = sortValue(a, sortKey);
+      const bv = sortValue(b, sortKey);
+      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    const columns: { key: string; label: string; numeric?: boolean }[] = [
+      { key: "model", label: "Model" },
+      { key: "runtime", label: currentTrack() === "hosted" ? "Provider" : "Runtime" },
+      { key: "quantization", label: "Quant" },
+      ...subScores.map((s) => ({
+        key: s,
+        label: s.charAt(0).toUpperCase() + s.slice(1),
+        numeric: true,
+      })),
+      { key: "composite", label: "aiMark Score", numeric: true },
+      { key: "created_at", label: "Date" },
+    ];
+
+    const headRow = el("tr", {}, el("th", { scope: "col" }, "#"));
+    for (const col of columns) {
+      const isActive = sortKey === col.key;
+      const btn = el(
+        "button",
+        { type: "button", class: "sort-btn", "data-key": col.key },
+        col.label,
+        isActive ? el("span", { "aria-hidden": "true" }, sortDir === "desc" ? " ↓" : " ↑") : null,
+      );
+      btn.addEventListener("click", () => {
+        if (sortKey === col.key) sortDir = sortDir === "desc" ? "asc" : "desc";
+        else {
+          sortKey = col.key;
+          sortDir = col.numeric || col.key === "created_at" ? "desc" : "asc";
+        }
+        render();
+      });
+      const th = el("th", { scope: "col", class: col.numeric ? "num" : "" }, btn);
+      if (isActive) th.setAttribute("aria-sort", sortDir === "desc" ? "descending" : "ascending");
+      headRow.append(th);
+    }
+
+    const tbody = el("tbody");
+    visible.forEach((row, i) => {
+      const badges = el("span", { class: "row-badges" });
+      const src = sourceBadge(row.source);
+      if (src) badges.append(" ", src);
+      if ((row.status ?? "accepted").toLowerCase() !== "accepted") {
+        badges.append(" ", statusBadge(row.status));
+      }
+      const tr = el(
+        "tr",
+        {},
+        el("td", {}, String(i + 1)),
+        el(
+          "td",
+          {},
+          el("a", { href: `/run/?id=${encodeURIComponent(row.run_id)}` }, row.model ?? "—"),
+          badges,
+        ),
+        el("td", {}, row.runtime ?? row.provider ?? "—"),
+        el("td", {}, row.quantization ?? "—"),
+      );
+      for (const s of subScores) {
+        const v = row.scores?.[s];
+        tr.append(el("td", { class: `num ${scoreGrade(v)}` }, fmtScore(v)));
+      }
+      tr.append(
+        el("td", { class: `num ${scoreGrade(row.composite)}` }, fmtScore(row.composite)),
+        el("td", {}, fmtDate(row.created_at)),
+      );
+      tbody.append(tr);
+    });
+
+    board.replaceChildren(el("table", {}, el("thead", {}, headRow), tbody));
+  }
+
+  async function load() {
+    setDataStatus(board, "Loading leaderboard…");
+    const params = new URLSearchParams({ suite, version, track: currentTrack() });
+    if (ciBox.checked) params.set("include_ci", "true");
+    if (flaggedBox.checked) params.set("include_flagged", "true");
+    const data = await apiGet<{ rows: LeaderboardRow[] }>(`/v1/leaderboard?${params}`);
+    fetchFailed = !data || !Array.isArray(data.rows);
+    rows = fetchFailed ? [] : data!.rows;
+    render();
+  }
+
+  form?.addEventListener("change", (e) => {
+    const target = e.target as HTMLElement;
+    if (target === filterInput) return;
+    load();
+  });
+  filterInput.addEventListener("input", () => render());
+  form?.addEventListener("submit", (e) => e.preventDefault());
+
+  load();
+</script>
+
+<style>
+  .board-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 1.5rem 0 1rem;
+  }
+
+  .track-toggle {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.9rem 0.5rem;
+    display: flex;
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .track-toggle legend {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 0 0.3rem;
+  }
+
+  .track-toggle label,
+  .control-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.92rem;
+  }
+
+  .control-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.92rem;
+    margin-left: auto;
+  }
+
+  .control-filter span {
+    color: var(--muted);
+  }
+
+  .board-foot {
+    font-size: 0.88rem;
+    margin-top: 1rem;
+  }
+
+  #board :global(.sort-btn) {
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  #board :global(.sort-btn:hover) {
+    color: var(--text);
+  }
+
+  #board :global(.row-badges .badge) {
+    margin-left: 0.45rem;
+  }
+
+  @media (max-width: 720px) {
+    .control-filter {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .control-filter input {
+      flex: 1;
+    }
+  }
+</style>

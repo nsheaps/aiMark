@@ -1,0 +1,220 @@
+{
+  "id": "bench",
+  "version": 1,
+  "status": "frozen",
+  "title": "aiMark System Benchmark (bench-1)",
+  "description": "The zero-choice benchmark: the CLI classifies the machine into a capability class, downloads the pinned llama.cpp build and the class's pinned Qwen2.5 GGUF, runs the fixed cell program, and produces one aiMark System Score. v1 deliberately ships Vulkan for linux GPU machines and CPU-only builds for windows — the windows CUDA build requires the 2-archive cudart bundle and is deferred to a later program version.",
+  "runtime": {
+    "engine": "llama.cpp",
+    "build": "b9616",
+    "assets": [
+      {
+        "os": "darwin",
+        "arch": "arm64",
+        "accel": "metal",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9616/llama-b9616-bin-macos-arm64.tar.gz",
+        "sha256": "901a4d0f7579c56559e0148702ea4f678373c214e933911898b15cb8683995d6",
+        "size_bytes": 10632979,
+        "server_path": "llama-b9616/llama-server"
+      },
+      {
+        "os": "darwin",
+        "arch": "amd64",
+        "accel": "cpu",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9616/llama-b9616-bin-macos-x64.tar.gz",
+        "sha256": "4c42ef34c2e67ca67b3bada0d08a9c13fb93f67786f025e5e3fb2af8735b27a2",
+        "size_bytes": 10866546,
+        "server_path": "llama-b9616/llama-server"
+      },
+      {
+        "os": "linux",
+        "arch": "amd64",
+        "accel": "vulkan",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9616/llama-b9616-bin-ubuntu-vulkan-x64.tar.gz",
+        "sha256": "6003f264df830e6de48532837d3dabeeec28ab2c90f700165ead24d47a4fb9ae",
+        "size_bytes": 38352024,
+        "server_path": "llama-b9616/llama-server"
+      },
+      {
+        "os": "linux",
+        "arch": "amd64",
+        "accel": "cpu",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9616/llama-b9616-bin-ubuntu-x64.tar.gz",
+        "sha256": "06a9651dafa495a3d3a83afc88b421d6e37fc433873745f8a991c4f5839c5a6c",
+        "size_bytes": 15493795,
+        "server_path": "llama-b9616/llama-server"
+      },
+      {
+        "os": "linux",
+        "arch": "arm64",
+        "accel": "cpu",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9616/llama-b9616-bin-ubuntu-arm64.tar.gz",
+        "sha256": "60c5a0766f9a7b408681b318455f982519f9d36e3467f6fd72a4975ea349ba1d",
+        "size_bytes": 12506144,
+        "server_path": "llama-b9616/llama-server"
+      },
+      {
+        "os": "windows",
+        "arch": "amd64",
+        "accel": "cpu",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9616/llama-b9616-bin-win-cpu-x64.zip",
+        "sha256": "ebc52099ea2fb9dbf5a4a5f58b3a486c92d290a1e83ac2556a6bd5d7b6bd63e3",
+        "size_bytes": 16803193,
+        "server_path": "llama-server.exe"
+      },
+      {
+        "os": "windows",
+        "arch": "arm64",
+        "accel": "cpu",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9616/llama-b9616-bin-win-cpu-arm64.zip",
+        "sha256": "78782cbd6214dc8c69827a1afd7c8717bacf7082b09353649d0083f995102e29",
+        "size_bytes": 10744575,
+        "server_path": "llama-server.exe"
+      }
+    ]
+  },
+  "models": [
+    {
+      "id": "compact-model",
+      "family": "qwen2.5",
+      "params_b": 1.5,
+      "quant": "Q4_K_M",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+      "sha256": "1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370",
+      "size_bytes": 986048768
+    },
+    {
+      "id": "mainstream-model",
+      "family": "qwen2.5",
+      "params_b": 7,
+      "quant": "Q4_K_M",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+      "sha256": "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423",
+      "size_bytes": 4683074240
+    },
+    {
+      "id": "performance-model",
+      "family": "qwen2.5",
+      "params_b": 14,
+      "quant": "Q4_K_M",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF/resolve/main/Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+      "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
+      "size_bytes": 8988110976
+    },
+    {
+      "id": "ultra-model",
+      "family": "qwen2.5",
+      "params_b": 32,
+      "quant": "Q4_K_M",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-32B-Instruct-GGUF/resolve/main/Qwen2.5-32B-Instruct-Q4_K_M.gguf",
+      "sha256": "2e5f6daea180dbc59f65a40641e94d3973b5dbaa32b3c0acf54647fa874e519e",
+      "size_bytes": 19851336576
+    }
+  ],
+  "classes": [
+    {
+      "id": "compact",
+      "title": "Compact",
+      "description": "CPU-only machines (any RAM) and GPUs/unified memory under 6 GB",
+      "cpu_only": true,
+      "accel_mem_max_gb": 6,
+      "model": "compact-model",
+      "context_budget": 4096
+    },
+    {
+      "id": "mainstream",
+      "title": "Mainstream",
+      "description": "6–16 GB of usable accelerator memory",
+      "accel_mem_min_gb": 6,
+      "accel_mem_max_gb": 16,
+      "model": "mainstream-model",
+      "context_budget": 8192
+    },
+    {
+      "id": "performance",
+      "title": "Performance",
+      "description": "16–24 GB of usable accelerator memory",
+      "accel_mem_min_gb": 16,
+      "accel_mem_max_gb": 24,
+      "model": "performance-model",
+      "context_budget": 8192
+    },
+    {
+      "id": "ultra",
+      "title": "Ultra",
+      "description": "24 GB or more of usable accelerator memory",
+      "accel_mem_min_gb": 24,
+      "model": "ultra-model",
+      "context_budget": 8192
+    }
+  ],
+  "anchor_model": "compact-model",
+  "cells": [
+    {
+      "id": "sprint-class",
+      "class": "*",
+      "suite": "sprint",
+      "suite_version": 1,
+      "model": "class",
+      "role": "score",
+      "weight": 3
+    },
+    {
+      "id": "marathon-class",
+      "class": "*",
+      "suite": "marathon",
+      "suite_version": 1,
+      "model": "class",
+      "role": "score",
+      "weight": 2,
+      "reps_override": 1
+    },
+    {
+      "id": "deepdive-class",
+      "class": "*",
+      "suite": "deepdive",
+      "suite_version": 1,
+      "model": "class",
+      "role": "score",
+      "weight": 1,
+      "reps_override": 1
+    },
+    {
+      "id": "sprint-anchor",
+      "class": "mainstream",
+      "suite": "sprint",
+      "suite_version": 1,
+      "model": "anchor",
+      "role": "score",
+      "weight": 1
+    },
+    {
+      "id": "sprint-anchor",
+      "class": "performance",
+      "suite": "sprint",
+      "suite_version": 1,
+      "model": "anchor",
+      "role": "score",
+      "weight": 1
+    },
+    {
+      "id": "sprint-anchor",
+      "class": "ultra",
+      "suite": "sprint",
+      "suite_version": 1,
+      "model": "anchor",
+      "role": "score",
+      "weight": 1
+    },
+    {
+      "id": "gauntlet-validity",
+      "class": "*",
+      "suite": "gauntlet",
+      "suite_version": 1,
+      "model": "class",
+      "role": "validity",
+      "validity_min_accuracy": 0.5,
+      "reps_override": 1
+    }
+  ]
+}

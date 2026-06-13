@@ -1,0 +1,43 @@
+name: Lint Files
+description: Run mise format (auto-fix) or mise lint (read-only) and report changes/failures
+
+inputs:
+  fix:
+    description: Whether to auto-fix lint issues
+    required: false
+    default: 'false'
+
+outputs:
+  changed-or-failed:
+    description: Whether files were changed or lint errors remain
+    value: ${{ steps.lint.outputs.changed-or-failed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run linters
+      id: lint
+      shell: bash
+      run: |
+        set +euo pipefail
+        HAS_ERRORS=false
+        FIX="${{ inputs.fix }}"
+
+        # fix=true → `mise run format` (apply auto-fixers, then re-verify).
+        # fix=false → `mise run lint` (read-only, no writes).
+        if [ "$FIX" = "true" ]; then
+          mise run format || HAS_ERRORS=true
+        else
+          mise run lint || HAS_ERRORS=true
+        fi
+
+        HAS_CHANGES=false
+        if [ -n "$(git status --porcelain)" ]; then
+          HAS_CHANGES=true
+        fi
+
+        if [ "$HAS_ERRORS" = "true" ] || [ "$HAS_CHANGES" = "true" ]; then
+          echo "changed-or-failed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed-or-failed=false" >> $GITHUB_OUTPUT
+        fi

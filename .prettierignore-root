@@ -1,0 +1,5 @@
+# Extra ignores for the ROOT project's prettier target only.
+# The root target owns repo-wide md/yaml/json; workspace projects own their
+# own source formatting (TS via their format scripts, Go via gofmt).
+# Keep workspace-internal fixtures out of the root pass here as they appear.
+packages/schema/testdata/

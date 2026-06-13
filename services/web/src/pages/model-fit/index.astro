@@ -1,0 +1,185 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Term from "../../components/Term.astro";
+---
+
+<Layout
+  title="Model Fit — aiMark"
+  description="Which models run well on hardware like yours: median tokens-per-second per (model, quantization, hardware) with plain-language usability badges."
+>
+  <div class="container page">
+    <h1>Model Fit</h1>
+    <p class="lede">
+      "What models work well on hardware like mine?" Community-measured medians of
+      <Term id="tokens-per-second">tokens per second</Term> and <Term id="ttft">TTFT</Term> for
+      every (<Term id="model">model</Term>, <Term id="quantization">quantization</Term>, hardware)
+      combination people have benchmarked — with a plain-language verdict.
+    </p>
+
+    <div class="callout">
+      <strong>Honest caveat: this is observational data.</strong> Rows are medians of
+      community-submitted runs (the <em>n</em> column shows how many), not a controlled
+      experiment — drivers, settings, and thermals all ride along. It includes zero-choice
+      benchmark cells and advanced-mode runs alike. Treat it as a map of what people actually
+      experience, not a guarantee.
+    </div>
+
+    <div class="legend">
+      <span class="badge badge--ok">feels instant</span> ≥ 30 tok/s ·
+      <span class="badge badge--warn">usable</span> 10–30 tok/s ·
+      <span class="badge badge--bad">painfully slow</span> &lt; 10 tok/s
+    </div>
+
+    <form class="fit-controls" aria-label="Model fit filters">
+      <label class="control-filter">
+        <span>Model</span>
+        <input type="search" id="model-filter" placeholder="e.g. qwen2.5" autocomplete="off" />
+      </label>
+      <label class="control-filter">
+        <span>Hardware</span>
+        <input type="search" id="cohort-filter" placeholder="e.g. 4090 or M3" autocomplete="off" />
+      </label>
+    </form>
+
+    <div class="table-wrap" id="fit-root" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading model-fit matrix…</p></div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtMetric,
+    setDataStatus,
+    usabilityBadgeEl,
+    type ModelFitRow,
+  } from "../../scripts/api";
+
+  const root = document.getElementById("fit-root") as HTMLElement;
+  const modelInput = document.getElementById("model-filter") as HTMLInputElement;
+  const cohortInput = document.getElementById("cohort-filter") as HTMLInputElement;
+
+  let rows: ModelFitRow[] = [];
+  let fetchFailed = false;
+
+  function render() {
+    if (fetchFailed) {
+      setDataStatus(
+        root,
+        "API unreachable",
+        "We couldn't load the model-fit matrix — check your connection or try again shortly.",
+      );
+      return;
+    }
+    const modelNeedle = modelInput.value.trim().toLowerCase();
+    const cohortNeedle = cohortInput.value.trim().toLowerCase();
+    const visible = rows
+      .filter((r) => !modelNeedle || r.model.toLowerCase().includes(modelNeedle))
+      .filter((r) => !cohortNeedle || r.cohort.toLowerCase().includes(cohortNeedle));
+
+    if (visible.length === 0) {
+      setDataStatus(
+        root,
+        rows.length === 0 ? "Not enough data yet" : "No rows match those filters",
+        rows.length === 0
+          ? "Rows appear once a (model, hardware) combination has at least 3 accepted community runs."
+          : "Try a shorter model name or hardware string, or clear the filters.",
+      );
+      return;
+    }
+
+    const headRow = el(
+      "tr",
+      {},
+      el("th", { scope: "col" }, "Model"),
+      el("th", { scope: "col" }, "Quant"),
+      el("th", { scope: "col" }, "Hardware"),
+      el("th", { scope: "col", class: "num" }, "n"),
+      el("th", { scope: "col", class: "num" }, "Median tok/s"),
+      el("th", { scope: "col", class: "num" }, "Median TTFT"),
+      el("th", { scope: "col" }, "Verdict"),
+    );
+    const tbody = el("tbody");
+    for (const row of visible) {
+      tbody.append(
+        el(
+          "tr",
+          {},
+          el("td", { class: "mono" }, row.model),
+          el("td", {}, row.quantization ?? "—"),
+          el(
+            "td",
+            {},
+            row.cohort,
+            " ",
+            el("span", { class: "badge" }, row.cohort_kind === "gpu" ? "GPU" : "CPU"),
+          ),
+          el("td", { class: "num" }, String(row.n)),
+          el("td", { class: "num" }, fmtMetric("decode_tps_mean", row.decode_tps_median)),
+          el("td", { class: "num" }, fmtMetric("ttft_ms_p50", row.ttft_ms_p50_median)),
+          el("td", {}, usabilityBadgeEl(row.usability)),
+        ),
+      );
+    }
+    root.replaceChildren(el("table", {}, el("thead", {}, headRow), tbody));
+  }
+
+  async function load() {
+    const data = await apiGet<{ rows: ModelFitRow[] }>("/v1/model-fit?min_n=3");
+    fetchFailed = !data || !Array.isArray(data.rows);
+    rows = fetchFailed ? [] : data!.rows;
+    render();
+  }
+
+  modelInput.addEventListener("input", () => render());
+  cohortInput.addEventListener("input", () => render());
+
+  load();
+</script>
+
+<style>
+  .legend {
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  .legend .badge {
+    margin-right: 0.25rem;
+  }
+
+  .fit-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 1.5rem 0 1rem;
+  }
+
+  .control-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.92rem;
+  }
+
+  .control-filter span {
+    color: var(--muted);
+  }
+
+  #fit-root :global(td .badge) {
+    margin-left: 0.2rem;
+  }
+
+  @media (max-width: 720px) {
+    .control-filter {
+      width: 100%;
+    }
+
+    .control-filter input {
+      flex: 1;
+    }
+  }
+</style>

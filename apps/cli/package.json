@@ -1,0 +1,15 @@
+{
+  "name": "@aimark/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The aimark CLI (Go) wrapped as an nx project",
+  "scripts": {
+    "build": "go build -o aimark ./cmd/aimark",
+    "test": "go test ./...",
+    "lint": "test -z \"$(gofmt -l .)\" && golangci-lint run && bun run codegen:check",
+    "format": "gofmt -w . && golangci-lint run && bun run codegen:check",
+    "codegen": "go run github.com/atombender/go-jsonschema@v0.18.0 -p schema --only-models --output internal/schema/schema_gen.go ../../packages/schema/schemas/run.v1.json ../../packages/schema/schemas/suite-manifest.v1.json ../../packages/schema/schemas/samples.v1.json ../../packages/schema/schemas/benchmark-program.v1.json ../../packages/schema/schemas/benchmark.v1.json && gofmt -w internal/schema/schema_gen.go && bun run codegen:suites",
+    "codegen:suites": "mkdir -p internal/suites/embedded internal/bench/embedded && for d in ../../packages/suites/*/; do if [ -f \"${d}manifest.json\" ]; then cp \"${d}manifest.json\" \"internal/suites/embedded/$(basename \"$d\").json\"; fi; done && for d in ../../packages/suites/programs/*/; do if [ -f \"${d}program.json\" ]; then cp \"${d}program.json\" \"internal/bench/embedded/$(basename \"$d\").json\"; fi; done",
+    "codegen:check": "bun run codegen && git diff --exit-code -- internal/schema internal/suites/embedded internal/bench/embedded || (echo 'Generated Go types, embedded suite manifests, or embedded benchmark programs are stale. Run `mise run codegen` and commit.' && exit 1)"
+  }
+}

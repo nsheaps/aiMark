@@ -1,0 +1,177 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Term from "../../components/Term.astro";
+---
+
+<Layout
+  title="Cloud monitor — aiMark"
+  description="Reference series: how hosted AI APIs perform over time, to put your local System Score in context."
+>
+  <div class="container page">
+    <h1>Cloud monitor</h1>
+    <p class="lede">
+      A reference, not a race: scheduled <Term id="monitoring-run">monitoring runs</Term> probe
+      <Term id="hosted-api">hosted APIs</Term> and record
+      <Term id="tokens-per-second">tokens per second</Term> and <Term id="ttft">TTFT</Term> over
+      time — so you can put your local <Term id="system-score">System Score</Term> in context
+      ("my rig vs a typical hosted API"), not crown a winner.
+    </p>
+
+    <div class="callout">
+      <strong>This is monitoring data, not a leaderboard.</strong> Probes are submitted on a
+      schedule by aiMark's central cron — which runs on CI infrastructure, so unlike every
+      leaderboard on this site, <Term id="ci-run">CI-sourced runs</Term> are <em>included</em> here
+      by design: the probes measure the provider's service, not the machine sending the request.
+      Network position still colors absolute numbers; trends and day-to-day changes are the
+      signal.
+    </div>
+
+    <div id="cloud-root" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading monitor series…</p></div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { apiGet, el, fmtMetric, setDataStatus, type MonitorSeries } from "../../scripts/api";
+
+  const root = document.getElementById("cloud-root") as HTMLElement;
+
+  function seriesTable(series: MonitorSeries, maxTps: number): HTMLElement {
+    const section = el(
+      "section",
+      { class: "monitor-series" },
+      el(
+        "h2",
+        {},
+        series.provider,
+        " ",
+        el("span", { class: "mono series-model" }, series.model),
+      ),
+    );
+    const tbody = el("tbody");
+    for (const point of series.points) {
+      const tps = point.decode_tps_median ?? 0;
+      const pct = maxTps > 0 ? Math.max(2, Math.round((tps / maxTps) * 100)) : 0;
+      const bar = el(
+        "div",
+        { class: "bar-track", role: "presentation" },
+        el("div", { class: "bar-fill", style: `width: ${pct}%` }),
+      );
+      tbody.append(
+        el(
+          "tr",
+          {},
+          el("th", { scope: "row", class: "mono" }, point.date),
+          el("td", { class: "num" }, String(point.n)),
+          el("td", { class: "num" }, fmtMetric("decode_tps_mean", point.decode_tps_median)),
+          el("td", { class: "bar-cell" }, bar),
+          el("td", { class: "num" }, fmtMetric("ttft_ms_p50", point.ttft_ms_p50_median)),
+        ),
+      );
+    }
+    section.append(
+      el(
+        "div",
+        { class: "table-wrap" },
+        el(
+          "table",
+          {},
+          el(
+            "thead",
+            {},
+            el(
+              "tr",
+              {},
+              el("th", { scope: "col" }, "Day"),
+              el("th", { scope: "col", class: "num" }, "Probes"),
+              el("th", { scope: "col", class: "num" }, "Median tok/s"),
+              el("th", { scope: "col" }, ""),
+              el("th", { scope: "col", class: "num" }, "Median TTFT"),
+            ),
+          ),
+          tbody,
+        ),
+      ),
+    );
+    return section;
+  }
+
+  async function load() {
+    const data = await apiGet<{ series: MonitorSeries[]; note?: string }>(
+      "/v1/monitor/series?days=30",
+    );
+    if (!data || !Array.isArray(data.series)) {
+      setDataStatus(
+        root,
+        "API unreachable",
+        "We couldn't load the monitoring series — check your connection or try again shortly.",
+      );
+      return;
+    }
+    if (data.series.length === 0) {
+      setDataStatus(
+        root,
+        "No monitoring data in the last 30 days",
+        "The scheduled monitor hasn't reported yet. Series appear here once probe runs land.",
+      );
+      return;
+    }
+    const maxTps = Math.max(
+      1,
+      ...data.series.flatMap((s) => s.points.map((p) => p.decode_tps_median ?? 0)),
+    );
+    const frag = document.createDocumentFragment();
+    for (const series of data.series) {
+      frag.append(seriesTable(series, maxTps));
+    }
+    if (data.note) {
+      frag.append(el("p", { class: "muted monitor-note" }, data.note));
+    }
+    root.replaceChildren(frag);
+  }
+
+  load();
+</script>
+
+<style>
+  #cloud-root :global(.monitor-series) {
+    margin-top: 2rem;
+  }
+
+  #cloud-root :global(.series-model) {
+    font-size: 0.7em;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  #cloud-root :global(th[scope="row"]) {
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.88rem;
+    background: transparent;
+  }
+
+  #cloud-root :global(.bar-cell) {
+    min-width: 10rem;
+    width: 35%;
+  }
+
+  #cloud-root :global(.bar-track) {
+    background: color-mix(in srgb, var(--border) 50%, transparent);
+    border-radius: 4px;
+    height: 0.7rem;
+    overflow: hidden;
+  }
+
+  #cloud-root :global(.bar-fill) {
+    background: var(--accent);
+    border-radius: 4px;
+    height: 100%;
+  }
+
+  #cloud-root :global(.monitor-note) {
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+  }
+</style>

@@ -1,0 +1,64 @@
+name: Docs Images
+
+# Regenerates the CLI captures + website screenshots embedded in README/docs
+# and auto-commits them when they changed. Weekly + manual only (NOT per-push):
+# benchmark numbers in the captures vary slightly run-to-run, so per-push
+# regeneration would churn commits.
+on:
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-images
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    env:
+      HAS_APP: ${{ secrets.AUTOMATION_GITHUB_APP_ID != '' }}
+    steps:
+      - name: Checkout and authenticate as GitHub App
+        if: env.HAS_APP == 'true'
+        id: auth
+        uses: nsheaps/github-actions/.github/actions/checkout-as-app@603052841cd49b9fdc99bc32979ff9c45c9b669e # checkout-as-app@main
+        with:
+          app-id: ${{ secrets.AUTOMATION_GITHUB_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_GITHUB_APP_PRIVATE_KEY }}
+          ref: ${{ github.ref }}
+
+      - name: Checkout (no app secrets configured)
+        if: env.HAS_APP != 'true'
+        uses: actions/checkout@v6
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-docs-${{ runner.os }}-${{ hashFiles('apps/cli/go.sum') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Capture images
+        run: ./scripts/capture-docs-images.sh
+
+      - name: Auto-commit updated images
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: 'docs: refresh CLI captures and site screenshots [skip ci]'
+          file_pattern: 'docs/images/*'
+          commit_user_name: ${{ steps.auth.outputs.user-name || 'github-actions[bot]' }}
+          commit_user_email: ${{ steps.auth.outputs.user-email || '41898282+github-actions[bot]@users.noreply.github.com' }}

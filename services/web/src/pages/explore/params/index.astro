@@ -1,0 +1,296 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import Term from "../../../components/Term.astro";
+---
+
+<Layout
+  title="Parameter impact — aiMark"
+  description="How setup parameters like context size, concurrency, and temperature correlate with composite scores across community runs."
+>
+  <div class="container page">
+    <h1>Parameter impact</h1>
+    <p class="lede">
+      How a single setup parameter correlates with the <Term id="composite-score"
+        >composite score</Term
+      > across community runs: pick a <Term id="suite">suite</Term>, a
+      <Term id="track">track</Term>, and a parameter key, and see the median score per value. See
+      <Term id="parameter-impact">parameter impact</Term> in the glossary.
+    </p>
+    <div class="callout">
+      <strong>Observational, not experimental.</strong> These are medians over whatever the
+      community happened to submit — nobody held the rest of the setup constant. A higher median
+      for <Term id="context-window">num_ctx</Term> 2048 doesn't prove the setting is faster; it may
+      just mean faster rigs tend to use it. Treat this page as a place to spot patterns worth
+      testing on your own hardware, not as a controlled experiment.
+    </div>
+
+    <form class="explore-controls" aria-label="Parameter impact controls">
+      <label class="control-select">
+        <span>Suite</span>
+        <select id="suite-select"><option value="">Loading…</option></select>
+      </label>
+      <label class="control-select">
+        <span>Version</span>
+        <select id="version-select"></select>
+      </label>
+      <fieldset class="track-toggle">
+        <legend>Track</legend>
+        <label><input type="radio" name="track" value="local" checked /> Local</label>
+        <label><input type="radio" name="track" value="hosted" /> Hosted</label>
+      </fieldset>
+      <label class="control-filter">
+        <span>Parameter</span>
+        <input
+          type="text"
+          id="param-input"
+          list="param-suggestions"
+          value="num_ctx"
+          placeholder="e.g. num_ctx"
+          autocomplete="off"
+        />
+        <datalist id="param-suggestions">
+          <option value="num_ctx"></option>
+          <option value="concurrency"></option>
+          <option value="temperature"></option>
+          <option value="quantization"></option>
+          <option value="max_tokens"></option>
+        </datalist>
+      </label>
+    </form>
+
+    <div id="impact-root" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading parameter impact…</p></div>
+    </div>
+
+    <p class="muted page-foot">
+      Suggested keys (<Term id="context-window">num_ctx</Term>,
+      <Term id="concurrency">concurrency</Term>, <Term id="temperature">temperature</Term>,
+      <Term id="quantization">quantization</Term>, <Term id="max-tokens">max_tokens</Term>) cover
+      the parameters the CLI captures most often, but any key recorded in a run's target params
+      works.
+    </p>
+  </div>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtScore,
+    scoreGrade,
+    setDataStatus,
+    type ParamImpactGroup,
+    type SuiteSummary,
+  } from "../../../scripts/api";
+
+  const root = document.getElementById("impact-root") as HTMLElement;
+  const form = document.querySelector<HTMLFormElement>(".explore-controls");
+  const suiteSelect = document.getElementById("suite-select") as HTMLSelectElement;
+  const versionSelect = document.getElementById("version-select") as HTMLSelectElement;
+  const paramInput = document.getElementById("param-input") as HTMLInputElement;
+
+  let suites: SuiteSummary[] = [];
+
+  function currentTrack(): string {
+    const checked = form?.querySelector<HTMLInputElement>('input[name="track"]:checked');
+    return checked?.value ?? "local";
+  }
+
+  function fillVersions() {
+    const versions = suites
+      .filter((s) => s.id === suiteSelect.value)
+      .map((s) => s.version)
+      .sort((a, b) => b - a);
+    versionSelect.replaceChildren(
+      ...versions.map((v) => el("option", { value: String(v) }, String(v))),
+    );
+  }
+
+  function renderGroups(param: string, groups: ParamImpactGroup[]) {
+    if (groups.length === 0) {
+      setDataStatus(
+        root,
+        `No runs captured "${param}" on this board yet`,
+        "Try another parameter key, suite, or track — or submit a run that sets it.",
+      );
+      return;
+    }
+
+    const medians = groups.map((g) => g.median_composite ?? 0);
+    const maxMedian = Math.max(...medians, 1);
+
+    const headRow = el(
+      "tr",
+      {},
+      el("th", { scope: "col" }, `${param} value`),
+      el("th", { scope: "col", class: "num" }, "Runs"),
+      el("th", { scope: "col", class: "num" }, "Median aiMark Score"),
+      el("th", { scope: "col", class: "bar-col" }, "Relative"),
+    );
+    const tbody = el("tbody");
+    for (const group of groups) {
+      const median = group.median_composite ?? 0;
+      const pct = Math.max(2, Math.round((median / maxMedian) * 100));
+      const bar = el("div", { class: "bar-track" });
+      bar.append(
+        el("div", {
+          class: "bar-fill",
+          style: `width: ${pct}%`,
+          role: "img",
+          "aria-label": `${fmtScore(median)} of ${fmtScore(maxMedian)} (best value)`,
+        }),
+      );
+      tbody.append(
+        el(
+          "tr",
+          {},
+          el("td", {}, el("code", { class: "mono" }, group.value)),
+          el("td", { class: "num" }, String(group.n)),
+          el("td", { class: `num ${scoreGrade(group.median_composite)}` }, fmtScore(median)),
+          el("td", { class: "bar-col" }, bar),
+        ),
+      );
+    }
+    root.replaceChildren(
+      el("div", { class: "table-wrap" }, el("table", {}, el("thead", {}, headRow), tbody)),
+    );
+  }
+
+  async function loadImpact() {
+    const param = paramInput.value.trim();
+    if (!suiteSelect.value || !param) {
+      setDataStatus(root, "Pick a suite and a parameter key to begin");
+      return;
+    }
+    setDataStatus(root, "Loading parameter impact…");
+    const query = new URLSearchParams({
+      suite: suiteSelect.value,
+      version: versionSelect.value,
+      track: currentTrack(),
+      param,
+    });
+    const data = await apiGet<{ groups: ParamImpactGroup[] }>(`/v1/params/impact?${query}`);
+    if (!data || !Array.isArray(data.groups)) {
+      setDataStatus(
+        root,
+        "API unreachable",
+        "We couldn't load parameter impact — check your connection or try again shortly.",
+      );
+      return;
+    }
+    renderGroups(param, data.groups);
+  }
+
+  async function init() {
+    const data = await apiGet<{ suites: SuiteSummary[] }>("/v1/suites");
+    if (!data || !Array.isArray(data.suites) || data.suites.length === 0) {
+      suiteSelect.replaceChildren(el("option", { value: "" }, "unavailable"));
+      setDataStatus(
+        root,
+        "API unreachable",
+        "We couldn't load the suite list — check your connection or try again shortly.",
+      );
+      return;
+    }
+    suites = data.suites;
+    const ids = [...new Set(suites.map((s) => s.id))].sort();
+    suiteSelect.replaceChildren(...ids.map((id) => el("option", { value: id }, id)));
+    if (ids.includes("sprint")) suiteSelect.value = "sprint";
+    fillVersions();
+    await loadImpact();
+  }
+
+  form?.addEventListener("change", (e) => {
+    if (e.target === suiteSelect) fillVersions();
+    void loadImpact();
+  });
+  let debounce: ReturnType<typeof setTimeout> | undefined;
+  paramInput.addEventListener("input", () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => void loadImpact(), 300);
+  });
+  form?.addEventListener("submit", (e) => e.preventDefault());
+
+  void init();
+</script>
+
+<style>
+  .explore-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 1.5rem 0 1rem;
+  }
+
+  .track-toggle {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.9rem 0.5rem;
+    display: flex;
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .track-toggle legend {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 0 0.3rem;
+  }
+
+  .track-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.92rem;
+  }
+
+  .control-select,
+  .control-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.92rem;
+  }
+
+  .control-select span,
+  .control-filter span {
+    color: var(--muted);
+  }
+
+  .page-foot {
+    font-size: 0.88rem;
+    margin-top: 1rem;
+  }
+
+  #impact-root :global(.bar-col) {
+    width: 40%;
+    min-width: 10rem;
+  }
+
+  #impact-root :global(.bar-track) {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    height: 0.9rem;
+    overflow: hidden;
+  }
+
+  #impact-root :global(.bar-fill) {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px 0 0 3px;
+  }
+
+  @media (max-width: 720px) {
+    .control-filter {
+      width: 100%;
+    }
+
+    .control-filter input {
+      flex: 1;
+    }
+  }
+</style>

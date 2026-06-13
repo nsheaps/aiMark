@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aimark.dev/schemas/samples.v1.json",
+  "title": "AimarkSamplesV1",
+  "description": "Raw per-request samples for one run. Stored alongside the run envelope locally and uploaded to blob storage (R2) on submit — never to the relational DB.",
+  "type": "object",
+  "required": ["schema_version", "run_id", "samples"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "aimark.samples.v1" },
+    "run_id": { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$" },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task_id", "repetition", "started_at", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "task_id": { "type": "string" },
+          "repetition": { "type": "integer", "minimum": 0 },
+          "concurrency": { "type": "integer", "minimum": 1 },
+          "warmup": {
+            "type": "boolean",
+            "description": "Warmup samples are recorded but excluded from metrics"
+          },
+          "started_at": { "type": "string", "format": "date-time" },
+          "status": { "type": "string", "enum": ["ok", "error", "timeout"] },
+          "error": { "type": "string" },
+          "ttft_ms": {
+            "type": "number",
+            "description": "First content token, stream-event level, monotonic clock"
+          },
+          "latency_ms": { "type": "number" },
+          "input_tokens": { "type": "integer" },
+          "output_tokens": { "type": "integer" },
+          "decode_tps": { "type": "number" },
+          "inter_token_ms_mean": { "type": "number" },
+          "grade": {
+            "type": "object",
+            "description": "Quality suites: objective grading outcome",
+            "additionalProperties": false,
+            "properties": {
+              "passed": { "type": "boolean" },
+              "detail": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

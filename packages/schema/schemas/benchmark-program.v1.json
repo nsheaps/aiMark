@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aimark.dev/schemas/benchmark-program.v1.json",
+  "title": "AimarkBenchmarkProgramV1",
+  "description": "A frozen zero-choice benchmark program: capability classes, pinned runtime builds, pinned model assets, and the (suite, model) cells each class runs. The user never chooses any of this — aimark classifies the machine and executes its class program.",
+  "type": "object",
+  "required": ["id", "version", "status", "title", "runtime", "classes", "cells"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "version": { "type": "integer", "minimum": 1 },
+    "status": { "type": "string", "enum": ["draft", "frozen", "retired"] },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "runtime": {
+      "type": "object",
+      "description": "The pinned inference engine — one engine version per program version, like 3DMark shipping its renderer",
+      "required": ["engine", "build", "assets"],
+      "additionalProperties": false,
+      "properties": {
+        "engine": { "type": "string" },
+        "build": { "type": "string" },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["os", "arch", "accel", "url"],
+            "additionalProperties": false,
+            "properties": {
+              "os": { "type": "string", "enum": ["darwin", "linux", "windows"] },
+              "arch": { "type": "string", "enum": ["amd64", "arm64"] },
+              "accel": { "type": "string", "enum": ["metal", "cuda", "vulkan", "cpu"] },
+              "url": { "type": "string" },
+              "sha256": {
+                "type": ["string", "null"],
+                "description": "null = unverified at freeze time; the CLI warns (trust-on-first-use) instead of failing",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": { "type": "integer" },
+              "server_path": {
+                "type": "string",
+                "description": "Path of the server binary inside the archive"
+              }
+            }
+          }
+        }
+      }
+    },
+    "models": {
+      "type": "array",
+      "description": "Pinned model assets referenced by cells",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "url", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "family": { "type": "string" },
+          "params_b": { "type": "number" },
+          "quant": { "type": "string" },
+          "url": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "size_bytes": { "type": "integer" }
+        }
+      }
+    },
+    "classes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "model"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "accel_mem_min_gb": { "type": "number" },
+          "accel_mem_max_gb": { "type": "number" },
+          "cpu_only": {
+            "type": "boolean",
+            "description": "true = this class accepts CPU-only machines (they classify here regardless of RAM)"
+          },
+          "model": { "type": "string", "description": "models[].id of the class test model" },
+          "context_budget": { "type": "integer", "description": "num_ctx used for class cells" }
+        }
+      }
+    },
+    "anchor_model": {
+      "type": "string",
+      "description": "models[].id every class also runs (cross-class reference cell)"
+    },
+    "cells": {
+      "type": "array",
+      "description": "The fixed test program. class '*' applies to every class; model 'class' resolves to the class model, 'anchor' to anchor_model.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "class", "suite", "suite_version", "model", "role"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "class": { "type": "string" },
+          "suite": { "type": "string" },
+          "suite_version": { "type": "integer" },
+          "model": { "type": "string", "enum": ["class", "anchor"] },
+          "role": {
+            "type": "string",
+            "enum": ["score", "validity"],
+            "description": "score cells feed the composite; validity cells (graded quality) only flag broken/cheated runs"
+          },
+          "weight": { "type": "number", "exclusiveMinimum": 0 },
+          "params": {
+            "type": "object",
+            "additionalProperties": { "type": ["string", "number", "boolean"] }
+          },
+          "reps_override": { "type": "integer", "minimum": 1 },
+          "validity_min_accuracy": {
+            "type": "number",
+            "description": "validity cells: quality_accuracy below this flags the benchmark"
+          }
+        }
+      }
+    }
+  }
+}

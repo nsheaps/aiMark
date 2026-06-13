@@ -1,0 +1,66 @@
+{
+  "id": "marathon",
+  "version": 1,
+  "status": "frozen",
+  "title": "Marathon 1",
+  "description": "Sustained throughput under concurrency — medium-length generations executed at concurrency 1, 4, and 16. Measures aggregate throughput, tail latency under load, and scaling efficiency.",
+  "tracks": ["local", "hosted"],
+  "reference": {
+    "label": "synthetic-1",
+    "notes": "v1 anchors the 1000-point scale to round-number synthetic baselines (100 tok/s aggregate at c=1, 800 tok/s at c=16, 8000ms p99 at c=16, CV 0.15) rather than a measured reference rig. A future suite version will re-anchor to measured hardware; per the versioning rules that resets the leaderboard."
+  },
+  "protocol": {
+    "warmup_requests": 1,
+    "repetitions": 2,
+    "request_timeout_ms": 120000,
+    "streaming": true,
+    "concurrency_levels": [1, 4, 16],
+    "decoding": {
+      "temperature": 0,
+      "max_tokens": 512
+    }
+  },
+  "tasks": [
+    {
+      "id": "photosynthesis",
+      "prompt": "Explain how photosynthesis works in detail, covering both the light-dependent reactions and the Calvin cycle, including where each stage occurs in the chloroplast and what the inputs and outputs are. Write roughly 400 words."
+    },
+    {
+      "id": "sql-vs-nosql",
+      "prompt": "Write a detailed comparison of SQL and NoSQL databases: data models, schema flexibility, consistency guarantees, scaling strategies, and typical use cases for each. Write roughly 400 words."
+    },
+    {
+      "id": "water-cycle",
+      "prompt": "Describe the Earth's water cycle in detail, covering evaporation, transpiration, condensation, precipitation, infiltration, and runoff, and explain how energy from the sun drives the cycle. Write roughly 400 words."
+    },
+    {
+      "id": "financial-crisis",
+      "prompt": "Explain the causes and consequences of the 2008 global financial crisis, covering subprime mortgages, securitization, the collapse of major institutions, and the policy responses that followed. Write roughly 400 words."
+    }
+  ],
+  "scoring": {
+    "performance": {
+      "metrics": [
+        { "key": "throughput_tps_c1", "reference": 100, "weight": 2 },
+        { "key": "throughput_tps_c16", "reference": 800, "weight": 3 },
+        { "key": "latency_ms_p99_c16", "reference": 8000, "weight": 2, "lower_is_better": true }
+      ]
+    },
+    "consistency": {
+      "metrics": [
+        { "key": "latency_ms_cv", "reference": 0.15, "weight": 1, "lower_is_better": true }
+      ]
+    },
+    "composite_weights": {
+      "performance": 3,
+      "consistency": 1
+    }
+  },
+  "plausibility": {
+    "throughput_tps_c1": { "min": 0.1, "max": 50000 },
+    "throughput_tps_c16": { "min": 0.1, "max": 800000 },
+    "latency_ms_p99_c16": { "min": 1, "max": 600000 },
+    "latency_ms_cv": { "min": 0, "max": 10 },
+    "throughput_scaling": { "min": 0, "max": 2 }
+  }
+}

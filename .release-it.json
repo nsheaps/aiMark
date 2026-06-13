@@ -1,0 +1,35 @@
+{
+  "git": {
+    "commitMessage": "chore: release web v${version} [skip ci]",
+    "tagName": "web-v${version}",
+    "tagMatch": "web-v*",
+    "tagAnnotation": "Release web v${version}",
+    "requireCleanWorkingDir": false,
+    "getLatestTagFromAllRefs": true
+  },
+  "github": {
+    "release": true,
+    "autoGenerate": true
+  },
+  "npm": false,
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": {
+        "name": "conventionalcommits",
+        "types": [
+          { "type": "feat", "section": "Features" },
+          { "type": "fix", "section": "Bug Fixes" },
+          { "type": "perf", "section": "Performance" },
+          { "type": "refactor", "section": "Refactoring" },
+          { "type": "docs", "section": "Documentation" },
+          { "type": "chore", "section": "Maintenance" }
+        ]
+      },
+      "infile": "CHANGELOG.md",
+      "header": "# Changelog",
+      "gitRawCommitsOpts": {
+        "firstParent": false
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enabledPlugins": {
+    "shared-lib@ai-mktpl": true,
+    "1pass@ai-mktpl": true,
+    "github@ai-mktpl": true,
+    "github-app@ai-mktpl": true,
+    "mise@ai-mktpl": true,
+    "dangerous-bypass@ai-mktpl": true
+  },
+  "extraKnownMarketplaces": {
+    "ai-mktpl": {
+      "source": {
+        "source": "github",
+        "repo": "nsheaps/ai-mktpl"
+      }
+    }
+  }
+}

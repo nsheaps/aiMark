@@ -1,0 +1,351 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+// The static site can't prerender unknown bench ids, so this page reads ?id=
+// client-side and fetches /v1/benchmarks/:id. Systems leaderboard rows link
+// here; each cell row links onward to /run/?id= for full run detail.
+---
+
+<Layout title="Benchmark details — aiMark">
+  <div class="container page">
+    <p class="crumb"><a href="/leaderboard/systems/mainstream/">← Back to system leaderboards</a></p>
+    <div id="bench-root" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading benchmark…</p></div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtDate,
+    fmtScore,
+    classTitle,
+    scoreGrade,
+    setDataStatus,
+    sourceBadge,
+    statusBadge,
+    type BenchDetail,
+  } from "../../scripts/api";
+
+  const root = document.getElementById("bench-root") as HTMLElement;
+  const benchId = new URLSearchParams(location.search).get("id");
+
+  function fmtValue(v: unknown): string {
+    if (v == null || v === "") return "—";
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  }
+
+  function kvTable(caption: string, obj: Record<string, unknown>): HTMLElement {
+    const tbody = el("tbody");
+    for (const [key, value] of Object.entries(obj)) {
+      tbody.append(
+        el(
+          "tr",
+          {},
+          el("th", { scope: "row" }, key.replace(/_/g, " ")),
+          el("td", { class: "mono" }, fmtValue(value)),
+        ),
+      );
+    }
+    return el(
+      "div",
+      { class: "table-wrap" },
+      el("table", {}, el("caption", { class: "visually-hidden" }, caption), tbody),
+    );
+  }
+
+  async function load() {
+    if (!benchId) {
+      setDataStatus(
+        root,
+        "No benchmark selected",
+        "Open a system from a class leaderboard, or add ?id=<bench_id> to the URL.",
+      );
+      return;
+    }
+    const bench = await apiGet<BenchDetail>(`/v1/benchmarks/${encodeURIComponent(benchId)}`);
+    if (!bench) {
+      setDataStatus(
+        root,
+        "Benchmark not found or API unreachable",
+        `We couldn't load benchmark ${benchId}. It may not exist yet, or the API may be temporarily down.`,
+      );
+      return;
+    }
+
+    const scores = bench.scores ?? {};
+    const composite = bench.composite;
+    const subScores = Object.entries(scores).filter(([, v]) => typeof v === "number") as [
+      string,
+      number,
+    ][];
+
+    const frag = document.createDocumentFragment();
+
+    // --- header ---------------------------------------------------------
+    const badges = el("p", { class: "run-badges" }, statusBadge(bench.status));
+    const src = sourceBadge(bench.source);
+    if (src) badges.append(" ", src);
+    if (bench.flag_reason) {
+      badges.append(
+        " ",
+        el("span", { class: "badge badge--warn" }, `flag: ${bench.flag_reason}`),
+      );
+    }
+    frag.append(
+      el("h1", {}, "Benchmark ", el("span", { class: "mono run-id" }, benchId)),
+      badges,
+      el(
+        "p",
+        { class: "muted" },
+        `Program ${bench.program?.id ?? "?"} v${bench.program?.version ?? "?"} · submitted ${fmtDate(bench.created_at)}` +
+          (bench.cli?.version ? ` · CLI ${bench.cli.version}` : ""),
+      ),
+    );
+
+    // --- score card -----------------------------------------------------
+    const scoreCard = el(
+      "section",
+      { class: "score-card" },
+      el(
+        "div",
+        { class: "score-main" },
+        el("p", { class: "score-label" }, "aiMark System Score"),
+        el("p", { class: `score-value ${scoreGrade(composite)}` }, fmtScore(composite)),
+        el(
+          "p",
+          { class: "score-anchor" },
+          el("span", { class: "badge badge--info" }, `${classTitle(bench.class ?? "?")} class`),
+        ),
+      ),
+    );
+    if (subScores.length > 0) {
+      const subs = el("div", { class: "score-subs" });
+      for (const [name, value] of subScores) {
+        subs.append(
+          el(
+            "div",
+            { class: "score-sub" },
+            el("p", { class: "score-label" }, name),
+            el("p", { class: `score-sub-value ${scoreGrade(value)}` }, fmtScore(value)),
+          ),
+        );
+      }
+      scoreCard.append(subs);
+    }
+    frag.append(scoreCard);
+
+    // --- classification ---------------------------------------------------
+    frag.append(el("h2", {}, "Why this class"));
+    const cl = bench.classification;
+    if (cl && Object.keys(cl).length > 0) {
+      const bits: string[] = [];
+      if (cl.cpu_only) bits.push("CPU-only machine — always Compact, regardless of RAM");
+      else if (typeof cl.accel_mem_gb === "number") {
+        bits.push(
+          `${cl.accel_mem_gb} GB usable accelerator memory` +
+            (cl.unified_memory ? " (unified memory, counted at 70%)" : ""),
+        );
+      }
+      if (cl.detail) bits.push(cl.detail);
+      frag.append(
+        el(
+          "p",
+          {},
+          `This machine was classified into the ${classTitle(bench.class ?? "?")} class: ${
+            bits.join(". ") || "no classification details recorded"
+          }.`,
+        ),
+      );
+    } else {
+      frag.append(
+        el("p", { class: "muted" }, "No classification details were recorded for this benchmark."),
+      );
+    }
+
+    // --- hardware profile -------------------------------------------------
+    const hw = bench.hardware_profile;
+    if (hw && Object.keys(hw).length > 0) {
+      frag.append(el("h2", {}, "Hardware profile"), kvTable("Hardware profile", hw));
+    } else {
+      frag.append(
+        el("h2", {}, "Hardware profile"),
+        el("p", { class: "muted" }, "No hardware profile captured."),
+      );
+    }
+
+    // --- cells ------------------------------------------------------------
+    frag.append(el("h2", {}, "Test cells"));
+    const cells = bench.cells ?? [];
+    if (cells.length === 0) {
+      frag.append(el("p", { class: "muted" }, "No cells recorded for this benchmark."));
+    } else {
+      const tbody = el("tbody");
+      for (const cell of cells) {
+        const roleBadge =
+          cell.role === "validity"
+            ? el("span", { class: "badge" }, "validity check")
+            : el("span", { class: "badge badge--info" }, "scored");
+        tbody.append(
+          el(
+            "tr",
+            {},
+            el("th", { scope: "row", class: "mono" }, cell.cell_id),
+            el("td", {}, cell.suite ? `${cell.suite.id} v${cell.suite.version}` : "—"),
+            el("td", { class: "mono" }, cell.model ?? "—"),
+            el("td", {}, roleBadge),
+            el(
+              "td",
+              { class: `num ${cell.role === "score" ? scoreGrade(cell.composite) : ""}` },
+              cell.role === "score" ? fmtScore(cell.composite) : "—",
+            ),
+            el(
+              "td",
+              {},
+              el("a", { href: `/run/?id=${encodeURIComponent(cell.run_id)}` }, "run detail →"),
+            ),
+          ),
+        );
+      }
+      frag.append(
+        el(
+          "div",
+          { class: "table-wrap" },
+          el(
+            "table",
+            {},
+            el(
+              "thead",
+              {},
+              el(
+                "tr",
+                {},
+                el("th", { scope: "col" }, "Cell"),
+                el("th", { scope: "col" }, "Suite"),
+                el("th", { scope: "col" }, "Model"),
+                el("th", { scope: "col" }, "Role"),
+                el("th", { scope: "col", class: "num" }, "Cell score"),
+                el("th", { scope: "col" }, "Drill down"),
+              ),
+            ),
+            tbody,
+          ),
+        ),
+        el(
+          "p",
+          { class: "muted" },
+          "Score cells feed the System Score (weighted geometric mean). Validity cells run " +
+            "graded tasks purely to detect broken or cheated runs — they never move the score.",
+        ),
+      );
+    }
+
+    // --- share ------------------------------------------------------------
+    const shareBtn = el("button", { type: "button", class: "btn btn--ghost" }, "Copy share URL");
+    const copied = el("span", { class: "muted copy-note", role: "status" });
+    shareBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(location.href);
+        copied.textContent = "Copied!";
+      } catch {
+        copied.textContent = location.href;
+      }
+      setTimeout(() => (copied.textContent = ""), 3000);
+    });
+    frag.append(el("div", { class: "share-row" }, shareBtn, copied));
+
+    root.replaceChildren(frag);
+  }
+
+  load();
+</script>
+
+<style>
+  .crumb {
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  #bench-root :global(.run-id) {
+    font-size: 0.65em;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  #bench-root :global(.run-badges .badge) {
+    margin-right: 0.4rem;
+  }
+
+  #bench-root :global(.score-card) {
+    display: flex;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.75rem 2rem;
+    margin: 1.5rem 0 2rem;
+  }
+
+  #bench-root :global(.score-label) {
+    margin: 0;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+  }
+
+  #bench-root :global(.score-value) {
+    margin: 0.1rem 0;
+    font-size: 3.2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  #bench-root :global(.score-anchor) {
+    margin: 0.35rem 0 0;
+  }
+
+  #bench-root :global(.score-subs) {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  #bench-root :global(.score-sub-value) {
+    margin: 0.1rem 0 0;
+    font-size: 1.6rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #bench-root :global(th[scope="row"]) {
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.9rem;
+    background: transparent;
+    width: 14rem;
+  }
+
+  #bench-root :global(td) {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  #bench-root :global(.share-row) {
+    margin-top: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  #bench-root :global(.copy-note) {
+    font-size: 0.85rem;
+    word-break: break-all;
+  }
+</style>

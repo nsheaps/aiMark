@@ -1,0 +1,305 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+// The static site can't prerender unknown run ids, so this page reads ?id=
+// client-side and fetches /v1/runs/:id. Leaderboard rows link here.
+---
+
+<Layout title="Run details — aiMark">
+  <div class="container page">
+    <p class="crumb"><a href="/leaderboard/sprint/1/">← Back to leaderboards</a></p>
+    <div id="run-root" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading run…</p></div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtDate,
+    fmtMetric,
+    fmtScore,
+    metricUnit,
+    scoreGrade,
+    setDataStatus,
+    sourceBadge,
+    statusBadge,
+    type RunDetail,
+  } from "../../scripts/api";
+
+  const root = document.getElementById("run-root") as HTMLElement;
+  const runId = new URLSearchParams(location.search).get("id");
+
+  function fmtValue(v: unknown): string {
+    if (v == null || v === "") return "—";
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  }
+
+  function kvTable(caption: string, obj: Record<string, unknown>): HTMLElement {
+    const tbody = el("tbody");
+    for (const [key, value] of Object.entries(obj)) {
+      tbody.append(
+        el(
+          "tr",
+          {},
+          el("th", { scope: "row" }, key.replace(/_/g, " ")),
+          el("td", { class: "mono" }, fmtValue(value)),
+        ),
+      );
+    }
+    return el(
+      "div",
+      { class: "table-wrap" },
+      el("table", {}, el("caption", { class: "visually-hidden" }, caption), tbody),
+    );
+  }
+
+  async function load() {
+    if (!runId) {
+      setDataStatus(
+        root,
+        "No run selected",
+        "Open a run from a leaderboard, or add ?id=<run_id> to the URL.",
+      );
+      return;
+    }
+    const run = await apiGet<RunDetail>(`/v1/runs/${encodeURIComponent(runId)}`);
+    if (!run) {
+      setDataStatus(
+        root,
+        "Run not found or API unreachable",
+        `We couldn't load run ${runId}. It may not exist yet, or the API may be temporarily down.`,
+      );
+      return;
+    }
+
+    const scores = run.scores ?? {};
+    const composite = scores.composite ?? run.composite;
+    const subScores = Object.entries(scores).filter(
+      ([k, v]) => k !== "composite" && typeof v === "number",
+    ) as [string, number][];
+
+    const frag = document.createDocumentFragment();
+
+    // --- header ---------------------------------------------------------
+    const badges = el("p", { class: "run-badges" }, statusBadge(run.status));
+    const src = sourceBadge(run.source);
+    if (src) badges.append(" ", src);
+    frag.append(
+      el("h1", {}, "Run ", el("span", { class: "mono run-id" }, runId)),
+      badges,
+      el(
+        "p",
+        { class: "muted" },
+        `Suite ${run.suite?.id ?? "?"} v${run.suite?.version ?? "?"} · submitted ${fmtDate(run.created_at)}` +
+          (run.cli?.version ? ` · CLI ${run.cli.version}` : ""),
+      ),
+    );
+
+    // --- score card -----------------------------------------------------
+    const scoreCard = el(
+      "section",
+      { class: "score-card" },
+      el(
+        "div",
+        { class: "score-main" },
+        el("p", { class: "score-label" }, "aiMark Score"),
+        el("p", { class: `score-value ${scoreGrade(composite)}` }, fmtScore(composite)),
+        el("p", { class: "score-anchor" }, "reference baseline ≈ 1000"),
+      ),
+    );
+    if (subScores.length > 0) {
+      const subs = el("div", { class: "score-subs" });
+      for (const [name, value] of subScores) {
+        subs.append(
+          el(
+            "div",
+            { class: "score-sub" },
+            el("p", { class: "score-label" }, name),
+            el("p", { class: `score-sub-value ${scoreGrade(value)}` }, fmtScore(value)),
+          ),
+        );
+      }
+      scoreCard.append(subs);
+    }
+    frag.append(scoreCard);
+
+    // --- target ---------------------------------------------------------
+    // The detail API flattens target fields to the top level.
+    const target: Record<string, unknown> = {
+      ...(run.target ?? {}),
+      ...(run.model != null ? { model: run.model } : {}),
+      ...(run.runtime != null ? { runtime: run.runtime } : {}),
+      ...(run.provider != null ? { provider: run.provider } : {}),
+      ...(run.quantization != null ? { quantization: run.quantization } : {}),
+      ...(run.track != null ? { track: run.track } : {}),
+      ...(run.params && Object.keys(run.params).length > 0 ? run.params : {}),
+    };
+    if (Object.keys(target).length > 0) {
+      frag.append(el("h2", {}, "Target"), kvTable("Benchmark target", target));
+    }
+
+    // --- hardware profile -------------------------------------------------
+    const hw = run.hardware_profile ?? run.environment?.hardware_profile;
+    if (hw && Object.keys(hw).length > 0) {
+      frag.append(el("h2", {}, "Hardware profile"), kvTable("Hardware profile", hw));
+    } else {
+      frag.append(
+        el("h2", {}, "Hardware profile"),
+        el("p", { class: "muted" }, "No hardware profile captured (hosted runs have none)."),
+      );
+    }
+
+    // --- metrics ----------------------------------------------------------
+    frag.append(el("h2", {}, "Metrics"));
+    const metrics = run.metrics ?? {};
+    if (Object.keys(metrics).length === 0) {
+      frag.append(el("p", { class: "muted" }, "No aggregate metrics reported for this run."));
+    } else {
+      const tbody = el("tbody");
+      for (const [key, value] of Object.entries(metrics)) {
+        tbody.append(
+          el(
+            "tr",
+            {},
+            el("th", { scope: "row", class: "mono" }, key),
+            el("td", { class: "num" }, fmtMetric(key, value)),
+            el("td", { class: "muted" }, metricUnit(key) || "ratio"),
+          ),
+        );
+      }
+      frag.append(
+        el(
+          "div",
+          { class: "table-wrap" },
+          el(
+            "table",
+            {},
+            el(
+              "thead",
+              {},
+              el(
+                "tr",
+                {},
+                el("th", { scope: "col" }, "Metric"),
+                el("th", { scope: "col", class: "num" }, "Value"),
+                el("th", { scope: "col" }, "Unit"),
+              ),
+            ),
+            tbody,
+          ),
+        ),
+      );
+    }
+
+    // --- share ------------------------------------------------------------
+    const shareBtn = el("button", { type: "button", class: "btn btn--ghost" }, "Copy share URL");
+    const copied = el("span", { class: "muted copy-note", role: "status" });
+    shareBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(location.href);
+        copied.textContent = "Copied!";
+      } catch {
+        copied.textContent = location.href;
+      }
+      setTimeout(() => (copied.textContent = ""), 3000);
+    });
+    frag.append(el("div", { class: "share-row" }, shareBtn, copied));
+
+    root.replaceChildren(frag);
+  }
+
+  load();
+</script>
+
+<style>
+  .crumb {
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  #run-root :global(.run-id) {
+    font-size: 0.65em;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  #run-root :global(.run-badges .badge) {
+    margin-right: 0.4rem;
+  }
+
+  #run-root :global(.score-card) {
+    display: flex;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.75rem 2rem;
+    margin: 1.5rem 0 2rem;
+  }
+
+  #run-root :global(.score-label) {
+    margin: 0;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+  }
+
+  #run-root :global(.score-value) {
+    margin: 0.1rem 0;
+    font-size: 3.2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  #run-root :global(.score-anchor) {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--faint);
+  }
+
+  #run-root :global(.score-subs) {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  #run-root :global(.score-sub-value) {
+    margin: 0.1rem 0 0;
+    font-size: 1.6rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #run-root :global(th[scope="row"]) {
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.9rem;
+    background: transparent;
+    width: 14rem;
+  }
+
+  #run-root :global(td) {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  #run-root :global(.share-row) {
+    margin-top: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  #run-root :global(.copy-note) {
+    font-size: 0.85rem;
+    word-break: break-all;
+  }
+</style>

@@ -1,0 +1,341 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Term from "../components/Term.astro";
+---
+
+<Layout title="aiMark — like 3DMark, but for AI">
+  <section class="hero">
+    <div class="container">
+      <h1>Like 3DMark, but for AI.</h1>
+      <p class="lede">
+        One command. No choices. <code>aimark</code> checks your hardware, picks your
+        <Term id="capability-class">class</Term>, runs the fixed test program, and gives your
+        machine a <Term id="system-score">System Score</Term>. The
+        <Term id="model">models</Term> are <Term id="test-asset">test assets</Term> — versioned
+        parts of the <Term id="benchmark">benchmark</Term>, not something you configure.
+      </p>
+      <div class="hero-actions">
+        <a class="btn" href="/install/">Install the CLI</a>
+        <a class="btn btn--ghost" href="/leaderboard/systems/mainstream/">View leaderboards</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="container">
+    <h2>Three steps to a score</h2>
+    <div class="card-grid steps">
+      <div class="card">
+        <p class="step-num" aria-hidden="true">1</p>
+        <h3>Install</h3>
+        <p>
+          One command installs the <code>aimark</code> CLI. No configuration files, no accounts, no
+          model-picking homework — the benchmark brings everything it needs.
+        </p>
+      </div>
+      <div class="card">
+        <p class="step-num" aria-hidden="true">2</p>
+        <h3>Run <code>aimark</code></h3>
+        <p>
+          Just the one word. It detects your hardware, assigns your
+          <Term id="capability-class">capability class</Term>, downloads its pinned
+          <Term id="test-asset">test assets</Term> (runtime + class model), and runs the fixed
+          program — watching <Term id="ttft">TTFT</Term> and
+          <Term id="tokens-per-second">tokens per second</Term> live.
+        </p>
+      </div>
+      <div class="card">
+        <p class="step-num" aria-hidden="true">3</p>
+        <h3>Get your System Score</h3>
+        <p>
+          A big score card, your <Term id="system-score">System Score</Term>, and your machine's
+          rank on its class <Term id="leaderboard">leaderboard</Term> — submitted
+          <Term id="anonymous-submission">anonymously</Term> if you like.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="board-head">
+      <h2>Top systems by class</h2>
+      <a id="board-link" href="/leaderboard/systems/mainstream/">Full leaderboard →</a>
+    </div>
+    <p class="muted">
+      Whole machines ranked by <Term id="system-score">System Score</Term> within their
+      <Term id="capability-class">capability class</Term>. Classes run different test models, so
+      scores are only comparable within a class — like 3DMark presets.
+    </p>
+    <div class="class-tabs" id="class-tabs" role="tablist" aria-label="Capability class">
+      <!-- populated by script -->
+    </div>
+    <div class="table-wrap" id="home-board" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading top systems…</p></div>
+    </div>
+  </section>
+
+  <section class="container">
+    <h2>What the data is for</h2>
+    <div class="card-grid">
+      <a class="card" href="/leaderboard/systems/mainstream/">
+        <h3>Buy smarter</h3>
+        <p>
+          Shopping for local-AI hardware? Class leaderboards rank real systems by measured
+          experience — not spec sheets.
+        </p>
+      </a>
+      <a class="card" href="/model-fit/">
+        <h3>Find models that fit</h3>
+        <p>
+          The model-fit matrix shows which models run well on hardware like yours — median tok/s
+          with plain-language usability badges.
+        </p>
+      </a>
+      <a class="card" href="/bench/">
+        <h3>Show off</h3>
+        <p>
+          Shareable score cards, class rank, and top-rig boards. Beat your friends' machines with
+          receipts.
+        </p>
+      </a>
+    </div>
+  </section>
+
+  <section class="container">
+    <h2>Get started in one line</h2>
+    <pre><code>curl -fsSL https://aimark.dev/install.sh | sh && aimark</code></pre>
+    <p class="muted">
+      Or grab a binary from GitHub Releases — see the <a href="/install/">install guide</a> for
+      every platform and the first-run walkthrough.
+    </p>
+  </section>
+
+  <section class="container">
+    <h2>New to AI benchmarking?</h2>
+    <div class="card-grid">
+      <a class="card" href="/docs/glossary/">
+        <h3>Glossary</h3>
+        <p>
+          Every term on this site — <Term id="token">token</Term>,
+          <Term id="quantization">quantization</Term>, <Term id="vram">VRAM</Term>,
+          <Term id="p99">p99</Term> — defined in plain English. Hover any dotted term anywhere on
+          the site for an instant definition.
+        </p>
+      </a>
+      <a class="card" href="/docs/methodology/">
+        <h3>Methodology</h3>
+        <p>
+          How capability classes are assigned, how the 1000-point anchor and weighted
+          <Term id="geometric-mean">geometric means</Term> work, and what we do about gamed
+          results.
+        </p>
+      </a>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtHardware,
+    fmtScore,
+    scoreGrade,
+    setDataStatus,
+    classTitle,
+    BENCH_CLASSES,
+    type SystemsRow,
+  } from "../scripts/api";
+
+  const container = document.getElementById("home-board");
+  const tabs = document.getElementById("class-tabs");
+  const boardLink = document.getElementById("board-link") as HTMLAnchorElement | null;
+
+  const byClass = new Map<string, SystemsRow[]>();
+  let active = "mainstream";
+
+  function renderTabs() {
+    if (!tabs) return;
+    tabs.replaceChildren(
+      ...BENCH_CLASSES.map((cls) => {
+        const btn = el(
+          "button",
+          {
+            type: "button",
+            class: `class-tab${cls === active ? " class-tab--active" : ""}`,
+            role: "tab",
+            "aria-selected": cls === active ? "true" : "false",
+          },
+          `${classTitle(cls)} (${byClass.get(cls)?.length ?? 0})`,
+        );
+        btn.addEventListener("click", () => {
+          active = cls;
+          renderTabs();
+          renderBoard();
+        });
+        return btn;
+      }),
+    );
+  }
+
+  function renderBoard() {
+    if (!container) return;
+    if (boardLink) boardLink.href = `/leaderboard/systems/${active}/`;
+    const rows = (byClass.get(active) ?? []).slice(0, 5);
+    if (rows.length === 0) {
+      setDataStatus(
+        container,
+        `No ${classTitle(active)} systems yet`,
+        "Be the first: install the CLI, run `aimark`, and put your machine on the board.",
+      );
+      return;
+    }
+    const thead = el(
+      "thead",
+      {},
+      el(
+        "tr",
+        {},
+        el("th", { scope: "col" }, "#"),
+        el("th", { scope: "col" }, "System"),
+        el("th", { scope: "col", class: "num" }, "System Score"),
+      ),
+    );
+    const tbody = el("tbody");
+    rows.forEach((row, i) => {
+      tbody.append(
+        el(
+          "tr",
+          {},
+          el("td", {}, String(i + 1)),
+          el(
+            "td",
+            {},
+            el(
+              "a",
+              { href: `/bench/?id=${encodeURIComponent(row.bench_id)}` },
+              fmtHardware(row.hardware),
+            ),
+          ),
+          el("td", { class: `num ${scoreGrade(row.composite)}` }, fmtScore(row.composite)),
+        ),
+      );
+    });
+    container.replaceChildren(el("table", {}, thead, tbody));
+  }
+
+  async function loadBoards() {
+    if (!container) return;
+    const results = await Promise.all(
+      BENCH_CLASSES.map((cls) => apiGet<{ rows: SystemsRow[] }>(`/v1/leaderboard/systems?class=${cls}`)),
+    );
+    let anyOk = false;
+    results.forEach((data, i) => {
+      if (data && Array.isArray(data.rows)) {
+        anyOk = true;
+        byClass.set(BENCH_CLASSES[i]!, data.rows);
+      }
+    });
+    if (!anyOk) {
+      setDataStatus(
+        container,
+        "Leaderboard unavailable",
+        "We couldn't reach the API just now — scores will appear here once it's back.",
+      );
+      renderTabs();
+      return;
+    }
+    // Default to the class with the most submitted systems.
+    let best = "mainstream";
+    let bestCount = -1;
+    for (const cls of BENCH_CLASSES) {
+      const n = byClass.get(cls)?.length ?? 0;
+      if (n > bestCount) {
+        best = cls;
+        bestCount = n;
+      }
+    }
+    active = best;
+    renderTabs();
+    renderBoard();
+  }
+
+  loadBoards();
+</script>
+
+<style>
+  .hero {
+    padding: 4.5rem 0 3rem;
+    border-bottom: 1px solid var(--border);
+    background: radial-gradient(
+      ellipse 80% 60% at 50% -10%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent
+    );
+  }
+
+  .hero h1 {
+    font-size: clamp(2.2rem, 6vw, 3.4rem);
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .steps .card {
+    position: relative;
+  }
+
+  .step-num {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+
+  .board-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .board-head h2 {
+    margin-bottom: 0;
+  }
+
+  .class-tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 1rem 0;
+  }
+
+  .class-tabs :global(.class-tab) {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.88rem;
+    padding: 0.35rem 0.9rem;
+    cursor: pointer;
+  }
+
+  .class-tabs :global(.class-tab:hover) {
+    color: var(--text);
+  }
+
+  .class-tabs :global(.class-tab--active) {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  section.container {
+    margin-top: 1rem;
+  }
+</style>

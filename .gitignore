@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+.astro/
+apps/cli/aimark
+apps/cli/aimark.exe
+
+# nx cache
+.nx/cache
+.nx/workspace-data
+
+# goreleaser
+dist-cli/
+
+# Local dev state
+*.sqlite
+*.sqlite-journal
+.dev-blobs/
+.wrangler/
+.env
+.env.*
+!.env.example
+
+# Locally installed tool binaries (github plugin, etc.)
+bin/.local/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code scratch
+.claude/tmp/
+.claude/scratch/

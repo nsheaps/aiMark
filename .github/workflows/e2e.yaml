@@ -1,0 +1,141 @@
+name: E2E
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    # Nightly real-runtime run (Ollama job below) — mock runs on every PR.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Full product loop against the deterministic mock runtime: build CLI →
+  # benchmark mock-llm → anonymous submit to a local API → assert the run is
+  # scored server-side, flagged source=ci, hidden from the default leaderboard,
+  # visible with include_ci=true, and claim-deletable.
+  e2e-mock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-e2e-${{ runner.os }}-${{ hashFiles('apps/cli/go.sum') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run e2e
+        run: ./scripts/e2e.sh
+
+  # The ZERO-CHOICE product loop: `aimark bench` classifies the runner, runs the
+  # fixed program against the mock runtime, submits cells + benchmark envelope,
+  # and asserts class-leaderboard CI flagging. Runs on every PR.
+  e2e-bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-e2e-${{ runner.os }}-${{ hashFiles('apps/cli/go.sum') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run bench e2e
+        run: ./scripts/e2e-bench.sh
+
+  # Same loop against a real Ollama with a tiny model. Slow + network-heavy, so
+  # nightly/manual only — never a PR gate.
+  e2e-ollama:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 30); do curl -fsS http://localhost:11434/api/version && break; sleep 1; done
+          ollama pull qwen2.5:0.5b
+
+      - name: Build CLI
+        run: cd apps/cli && go build -o /tmp/aimark ./cmd/aimark
+
+      - name: Start API
+        run: |
+          PORT=8788 AIMARK_DB_PATH=/tmp/e2e-ollama.sqlite bun services/api/entrypoints/bun.ts &
+          for i in $(seq 1 30); do curl -fsS http://localhost:8788/v1/health && break; sleep 1; done
+
+      - name: Benchmark Ollama and submit anonymously
+        env:
+          CI: 'true'
+        run: |
+          /tmp/aimark run sprint-1 --target ollama:qwen2.5:0.5b --reps 3 --warmups 1 --json > /tmp/run.json
+          jq -e '.source == "ci" and .metrics.decode_tps_mean > 0' /tmp/run.json
+          /tmp/aimark submit --all-pending --api http://localhost:8788 --yes
+          RUN_ID=$(jq -r '.run_id' /tmp/run.json)
+          # ci-sourced: hidden by default, visible with include_ci
+          test "$(curl -fsS "http://localhost:8788/v1/leaderboard?suite=sprint&version=1&track=local" | jq "[.rows[] | select(.run_id == \"$RUN_ID\")] | length")" = "0"
+          curl -fsS "http://localhost:8788/v1/leaderboard?suite=sprint&version=1&track=local&include_ci=true" | jq -e "[.rows[] | select(.run_id == \"$RUN_ID\")] | length == 1"
+
+  # Nightly REAL zero-choice bench: actual pinned llama.cpp download + the
+  # Compact-class model (~1GB) on the CPU runner. Proves the asset manager,
+  # engine lifecycle, and classification against reality.
+  e2e-bench-real:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Start API
+        run: |
+          PORT=8795 AIMARK_DB_PATH=/tmp/bench-real.sqlite bun services/api/entrypoints/bun.ts &
+          for i in $(seq 1 30); do curl -fsS http://localhost:8795/v1/health && break; sleep 1; done
+
+      - name: Build CLI
+        run: cd apps/cli && go build -o /tmp/aimark ./cmd/aimark
+
+      - name: Real bench (downloads pinned runtime + Compact model)
+        env:
+          CI: 'true'
+          AIMARK_BENCH_FAST: '1'
+        run: |
+          /tmp/aimark bench --json --yes --api http://localhost:8795 > /tmp/bench.json
+          jq -e '.class == "compact" and .source == "ci"' /tmp/bench.json
+          BENCH_ID=$(jq -r '.bench_id' /tmp/bench.json)
+          curl -fsS "http://localhost:8795/v1/benchmarks/$BENCH_ID" | jq -e '.composite > 0'

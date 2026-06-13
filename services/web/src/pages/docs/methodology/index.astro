@@ -1,0 +1,318 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import Term from "../../../components/Term.astro";
+---
+
+<Layout
+  title="Methodology — aiMark"
+  description="How aiMark scores work: the 1000-point reference anchor, weighted geometric means, sub-scores, tracks, suite versioning, and honest integrity."
+>
+  <div class="container container--narrow page">
+    <h1>Methodology</h1>
+    <p class="lede">
+      Every aiMark number is designed to be explainable. This page covers how the zero-choice
+      benchmark classifies your machine and scores it, why models are test assets rather than
+      choices, how cloud APIs fit in, and — in the advanced-mode section — how the underlying
+      suite scores are computed and what we do (and honestly cannot do) about gamed results.
+    </p>
+
+    <h2 id="zero-choice">The zero-choice benchmark</h2>
+    <p>
+      Running <code>aimark</code> involves no decisions: the CLI inspects your machine, assigns a
+      <Term id="capability-class">capability class</Term>, downloads the pinned
+      <Term id="test-asset">test assets</Term> for that class, runs the fixed test program, and
+      produces one <Term id="system-score">System Score</Term>. The benchmark measures
+      <strong>your system</strong>, the way 3DMark measures a PC — the model is part of the test,
+      not the thing being tested.
+    </p>
+
+    <h3 id="classes">Capability classes and the classification rule</h3>
+    <p>
+      The classification input is <strong>usable accelerator memory</strong>: the largest GPU's
+      <Term id="vram">VRAM</Term>. Two deliberate wrinkles:
+    </p>
+    <ul>
+      <li>
+        <strong>Apple Silicon <Term id="unified-memory">unified memory</Term> counts at 70%.</strong>
+        Unified memory is shared with the OS and everything else running, so a 32 GB M-series Mac
+        cannot actually dedicate 32 GB to model weights. Counting 70% puts Macs in the class whose
+        test model they can genuinely run well, rather than flattering the spec sheet.
+      </li>
+      <li>
+        <strong>CPU-only machines are always Compact, regardless of RAM.</strong> A 64 GB
+        CPU-only box can <em>hold</em> a 32B model but cannot meaningfully run one — memory
+        bandwidth, not capacity, is the wall. It's the same reason an integrated GPU runs 3DMark
+        Night Raid and not Time Spy Extreme.
+      </li>
+    </ul>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Class</th>
+            <th scope="col">Usable accelerator memory</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Compact</th><td>CPU-only, or under 6 GB</td></tr>
+          <tr><th scope="row">Mainstream</th><td>6–16 GB</td></tr>
+          <tr><th scope="row">Performance</th><td>16–24 GB</td></tr>
+          <tr><th scope="row">Ultra</th><td>24 GB and up</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Each class runs its own pinned test model (one model family across classes, for a clean
+      scaling story), and every class <em>also</em> runs the Compact model as a cross-class anchor
+      cell — so any two machines share at least one identical workload. System Scores are
+      comparable only within a (benchmark version, class) pair; the class leaderboards rank
+      <strong>systems</strong>, never models.
+    </p>
+
+    <h3 id="test-assets">Models are test assets</h3>
+    <p>
+      In zero-choice mode, the model is part of the benchmark the way a rendering scene is part of
+      3DMark. The program manifest pins exact model files and a specific llama.cpp build by URL
+      and sha256; the CLI downloads, verifies, and runs them — your installed runtimes and models
+      are not involved. Changing any test asset would silently change what scores mean, so any
+      change produces a new program version and a fresh leaderboard, exactly like
+      <a href="#versioning">suite versioning</a> below.
+    </p>
+
+    <h3 id="validity">Validity checks: graded tasks as tamper detection</h3>
+    <p>
+      The program includes a graded-quality cell (Gauntlet), but it is a
+      <Term id="validity-check">validity check</Term>, not a score input. In a hardware benchmark
+      the model's answer quality is a <strong>constant of the class</strong> — every Mainstream
+      machine runs the same model on the same tasks, so accuracy should land in the same band
+      everywhere. A result far below that band doesn't mean "slow hardware"; it means the run is
+      broken or cheated (wrong model, corrupted weights, a doctored client). Such results flag the
+      whole benchmark off the default boards instead of moving its score.
+    </p>
+
+    <h3 id="cloud-monitoring">Cloud APIs are monitoring, not competition</h3>
+    <p>
+      Hosted APIs don't race local machines on aiMark. A scheduled monitor probes providers and
+      records latency and throughput over time as a <Term id="monitoring-run">reference series</Term>
+      — shown on the <a href="/cloud/">cloud monitor</a> page so you can put a local score in
+      context. Monitoring probes typically run on CI infrastructure and are
+      <em>included</em> there by design (the one place CI-sourced data is the point: the probe
+      measures the provider, not the machine sending the request). They are excluded from every
+      leaderboard.
+    </p>
+
+    <hr />
+
+    <h2 id="advanced">Advanced mode: pick-your-own suites</h2>
+    <p>
+      Everything below describes the underlying suite machinery — which both powers the
+      zero-choice program's cells <em>and</em> remains directly usable as advanced mode
+      (<code>aimark run &lt;suite&gt; --target …</code>) for benchmarking your own model/runtime
+      combinations. Advanced-mode runs appear on the <a href="/leaderboard/sprint/1/">per-suite
+      boards</a> and feed the <a href="/model-fit/">model-fit matrix</a>, but never the class
+      system leaderboards.
+    </p>
+
+    <h2 id="score-model">The score model</h2>
+    <p>
+      aiMark borrows the trick that made 3DMark scores meaningful: every
+      <Term id="suite">suite</Term> version ships a frozen
+      <Term id="reference-baseline">reference baseline</Term> for each
+      <Term id="metric">metric</Term> it measures. Match the reference and you score
+      <strong>~1000 points</strong>. Twice as good ≈ 2000. Half as good ≈ 500. The anchor never
+      moves within a suite version, so a score means the same thing today and a year from now.
+    </p>
+    <p>Mechanically, each sub-score is:</p>
+    <pre><code>sub_score = 1000 × weighted geomean( metric / reference_metric )</code></pre>
+    <p>
+      For metrics where lower is better (like <Term id="ttft">TTFT</Term>), the ratio is inverted
+      before averaging. The weights and reference values are <strong>data, not code</strong> —
+      frozen in the suite manifest, published openly, and identical for every submission.
+    </p>
+
+    <h3 id="sub-scores">Four sub-scores</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Sub-score</th>
+            <th scope="col">Measures</th>
+            <th scope="col">Built from</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Performance</th>
+            <td>How fast it feels and finishes</td>
+            <td>
+              <Term id="decode">decode</Term> tok/s, <Term id="ttft">TTFT</Term>,
+              <Term id="latency">latency</Term>
+              <Term id="p50">p50</Term>/<Term id="p95">p95</Term>/<Term id="p99">p99</Term>,
+              <Term id="throughput">throughput</Term> under <Term id="concurrency"
+                >concurrency</Term
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Quality</th>
+            <td>Whether answers are right</td>
+            <td>Accuracy on objectively-graded tasks — no LLM-as-judge in v1</td>
+          </tr>
+          <tr>
+            <th scope="row">Cost-Efficiency</th>
+            <td>Quality per dollar (hosted)</td>
+            <td>
+              <Term id="cost-per-token">Pricing snapshot</Term> captured at run time; local energy
+              metering may come later
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Consistency</th>
+            <td>How steady results are run-to-run</td>
+            <td>
+              Inverse <Term id="coefficient-of-variation">coefficient of variation</Term> across
+              <Term id="repetition">repetitions</Term>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The composite <strong>aiMark Score</strong> is the weighted
+      <Term id="geometric-mean">geometric mean</Term> of whichever sub-scores the suite produces.
+      Geometric, not arithmetic, on purpose: with a geometric mean you cannot buy a high composite
+      by maxing one dimension while tanking another — doubling one sub-score and halving another
+      cancels out. Not every suite produces every sub-score; Sprint 1 produces Performance and
+      Consistency.
+    </p>
+
+    <h2 id="tracks">Tracks: local vs hosted</h2>
+    <p>
+      Scores are comparable only within a <strong>(suite, version, <Term id="track">track</Term
+      >)</strong> triple. The <code>local</code> track benchmarks models on your own machine — the
+      <Term id="hardware-profile">hardware profile</Term> is captured, and there is no cost
+      dimension. The <code>hosted</code> track benchmarks <Term id="provider">provider</Term> APIs
+      over the internet — <Term id="region">region</Term> and pricing are captured, and timing
+      includes real network overhead.
+    </p>
+    <p>
+      The two tracks measure genuinely different things, so they are
+      <strong>never implicitly compared</strong>. The only place a local run can appear next to a
+      hosted run is the <a href="/compare/">compare view</a>, where you asked for it explicitly and
+      the caveats are shown.
+    </p>
+
+    <h2 id="versioning">Suite versioning — like 3DMark generations</h2>
+    <p>
+      A <Term id="suite-version">suite version</Term> freezes everything that could affect a score:
+      tasks, prompts, grading, reference baselines, weights, and protocol (warmups, repetitions,
+      timeouts, decoding settings). <strong>Any</strong> change — even a better prompt — produces a
+      new version with a brand-new leaderboard. Old boards stay up, frozen; old scores are never
+      silently invalidated or mixed with new ones.
+    </p>
+    <p>
+      This is exactly how 3DMark generations work, and it is why a "Sprint 1" score will still mean
+      something years from now. Sprint 1's reference anchors are synthetic round numbers (100 tok/s
+      decode, 50ms TTFT, 1500ms p95 latency, CV 0.10); a future version will re-anchor to a
+      measured reference rig — and per the rules above, that resets the board.
+    </p>
+
+    <h2 id="captured">What gets captured on every run</h2>
+    <ul>
+      <li>
+        <strong>Model:</strong> name, <Term id="parameter-count">parameter count</Term>,
+        <Term id="quantization">quantization</Term>, and a <Term id="model-digest"
+          >model digest</Term
+        > where the runtime provides one
+      </li>
+      <li>
+        <strong>Execution:</strong> <Term id="runtime">runtime</Term> or provider with version,
+        <Term id="region">region</Term> (hosted), <Term id="context-window">context length</Term>,
+        <Term id="concurrency">concurrency</Term>, <Term id="prompt-caching">prompt caching</Term> and
+        <Term id="streaming">streaming</Term> flags
+      </li>
+      <li>
+        <strong>Hardware (local):</strong> CPU and cores, RAM, GPU and <Term id="vram">VRAM</Term>,
+        <Term id="unified-memory">unified memory</Term>, OS — hashed into a
+        <Term id="hardware-profile">hardware profile id</Term> so identical rigs cluster
+      </li>
+      <li>
+        <strong>Provenance:</strong> CLI version, timestamp, pricing snapshot (hosted), and the
+        integrity signature
+      </li>
+    </ul>
+    <p>
+      Because the full settings vector rides along with every score, leaderboards are sliceable by
+      any of these dimensions, and corpus-wide
+      <Term id="parameter-impact">parameter-impact</Term> analysis can answer questions like
+      "how much does quantization actually move Sprint scores?"
+    </p>
+
+    <h2 id="integrity">Integrity — the honest version</h2>
+    <p>
+      Let's be straight about this: <strong
+        >a client-side benchmark can never be cryptographically trustworthy.</strong
+      > The benchmark runs on hardware you control, with a binary you could modify. Anyone who promises
+      otherwise is selling something. Like 3DMark, aiMark's strategy is to raise the bar for cheating
+      and rely on statistics to catch what slips through.
+    </p>
+    <ol>
+      <li>
+        <strong><Term id="hmac-signing">HMAC signing</Term>.</strong> Official release binaries sign
+        each result payload, and the API verifies signatures on submission. The key ships inside the
+        binary, so a determined person can extract it — we document that openly. Signing stops casual
+        tampering, not determined attackers.
+      </li>
+      <li>
+        <strong>Environment capture.</strong> Runtime versions, <Term id="model-digest"
+          >model digests</Term
+        >, and OS fingerprints make fabricated setups harder to describe consistently.
+      </li>
+      <li>
+        <strong>Statistical detection — the real defense.</strong> Every submission is checked
+        against per-metric <Term id="plausibility-check">plausibility bounds</Term> and against the
+        distribution of comparable runs. Physically impossible values and extreme
+        <Term id="outlier">outliers</Term> (beyond ~4σ for their cohort) are automatically flagged —
+        kept publicly visible for transparency, but excluded from default boards.
+      </li>
+      <li>
+        <strong><Term id="integrity-tier">Tiers</Term>.</strong> Runs are labelled
+        <code>unverified</code> (anonymous), <code>claimed</code> (GitHub-linked), or
+        <code>verified</code> (signature + plausibility passed). Default board views favor verified
+        results.
+      </li>
+      <li>
+        <strong><Term id="dedup">Deduplication</Term>.</strong> Payload-hash uniqueness plus
+        nonce/timestamp windows keep the same result from being submitted twice.
+      </li>
+    </ol>
+
+    <h2 id="ci-runs">CI runs</h2>
+    <p>
+      aiMark's own continuous-integration pipelines submit real runs to test the system end to end.
+      These are labelled <Term id="ci-run">source=ci</Term> and
+      <strong>excluded from default leaderboards</strong>: shared CI machines are slow, noisy, and
+      say nothing about real hardware. They are not deleted — every board has a "show CI runs"
+      toggle, and CI rows carry a visible badge wherever they appear. The one deliberate exception
+      is the <a href="/cloud/">cloud monitor</a>, where CI-sourced probes are included by design —
+      see <a href="#cloud-monitoring">cloud APIs are monitoring</a>.
+    </p>
+
+    <h2 id="protocol">Protocol details</h2>
+    <p>
+      Each suite fixes its prompts and decoding parameters (<Term id="temperature"
+        >temperature</Term
+      > 0 where determinism matters, fixed <Term id="max-tokens">max tokens</Term>), discards
+      <Term id="warmup">warmup</Term> requests so <Term id="cold-start">cold-start</Term> costs
+      don't pollute timing, runs at least 20 measured <Term id="repetition">repetitions</Term>, and
+      enforces request timeouts. <Term id="ttft">TTFT</Term> is measured at the stream-event level —
+      the timestamp of the first content token — with a separate network round-trip preflight so hosted
+      numbers can be interpreted fairly.
+    </p>
+
+    <p class="muted">
+      Want the exact numbers? Every suite manifest — tasks, weights, references, bounds — is public
+      in the <a href="https://github.com/nsheaps/aiMark">aiMark repository</a>.
+    </p>
+  </div>
+</Layout>

@@ -1,0 +1,26 @@
+{
+  "name": "@aimark/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "aiMark submission + leaderboard API (Hono, deployed to Cloudflare Workers)",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "prettier --check src test && tsc --noEmit",
+    "format": "prettier --write src test && tsc --noEmit",
+    "dev": "bun run --watch entrypoints/bun.ts"
+  },
+  "dependencies": {
+    "@aimark/schema": "workspace:*",
+    "@aimark/scoring": "workspace:*",
+    "@aimark/suites": "workspace:*",
+    "drizzle-orm": "^0.44.0",
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260601.0",
+    "drizzle-kit": "^0.31.0",
+    "wrangler": "^4.0.0"
+  }
+}

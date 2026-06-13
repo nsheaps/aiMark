@@ -1,0 +1,150 @@
+{
+  "description": "Golden score vectors. Both scoring implementations (packages/scoring in TS, apps/cli/internal/score in Go) must reproduce expected values to within tolerance. Formula: sub_score = 1000 * weighted geomean(metric/reference), lower-is-better inverted; composite = weighted geomean of sub-scores.",
+  "tolerance": 1e-06,
+  "sub_score_cases": [
+    {
+      "name": "reference setup scores exactly 1000",
+      "metrics": {
+        "decode_tps_mean": 100,
+        "ttft_ms_p50": 50
+      },
+      "specs": [
+        {
+          "key": "decode_tps_mean",
+          "reference": 100,
+          "weight": 1
+        },
+        {
+          "key": "ttft_ms_p50",
+          "reference": 50,
+          "weight": 1,
+          "lower_is_better": true
+        }
+      ],
+      "expected": 1000
+    },
+    {
+      "name": "twice as fast everywhere scores 2000",
+      "metrics": {
+        "decode_tps_mean": 200,
+        "ttft_ms_p50": 25
+      },
+      "specs": [
+        {
+          "key": "decode_tps_mean",
+          "reference": 100,
+          "weight": 1
+        },
+        {
+          "key": "ttft_ms_p50",
+          "reference": 50,
+          "weight": 1,
+          "lower_is_better": true
+        }
+      ],
+      "expected": 2000
+    },
+    {
+      "name": "sprint-1 performance vector, mixed weights",
+      "metrics": {
+        "decode_tps_mean": 150,
+        "ttft_ms_p50": 40,
+        "latency_ms_p95": 1200
+      },
+      "specs": [
+        {
+          "key": "decode_tps_mean",
+          "reference": 100,
+          "weight": 3
+        },
+        {
+          "key": "ttft_ms_p50",
+          "reference": 50,
+          "weight": 3,
+          "lower_is_better": true
+        },
+        {
+          "key": "latency_ms_p95",
+          "reference": 1500,
+          "weight": 2,
+          "lower_is_better": true
+        }
+      ],
+      "expected": 1338.4525525334052
+    },
+    {
+      "name": "half speed on a single metric",
+      "metrics": {
+        "decode_tps_mean": 50
+      },
+      "specs": [
+        {
+          "key": "decode_tps_mean",
+          "reference": 100,
+          "weight": 2
+        }
+      ],
+      "expected": 500
+    },
+    {
+      "name": "consistency vector, very stable run",
+      "metrics": {
+        "ttft_ms_cv": 0.05,
+        "latency_ms_cv": 0.025
+      },
+      "specs": [
+        {
+          "key": "ttft_ms_cv",
+          "reference": 0.1,
+          "weight": 1,
+          "lower_is_better": true
+        },
+        {
+          "key": "latency_ms_cv",
+          "reference": 0.1,
+          "weight": 1,
+          "lower_is_better": true
+        }
+      ],
+      "expected": 2828.4271247461897
+    }
+  ],
+  "composite_cases": [
+    {
+      "name": "equal sub-scores collapse to that value",
+      "sub_scores": {
+        "performance": 1500,
+        "consistency": 1500
+      },
+      "weights": {
+        "performance": 3,
+        "consistency": 1
+      },
+      "expected": 1500
+    },
+    {
+      "name": "sprint-1 weighting 3:1",
+      "sub_scores": {
+        "performance": 1338.4525525334052,
+        "consistency": 2828.4271247461897
+      },
+      "weights": {
+        "performance": 3,
+        "consistency": 1
+      },
+      "expected": 1613.7582799549928
+    },
+    {
+      "name": "weights for absent sub-scores are ignored",
+      "sub_scores": {
+        "performance": 1200
+      },
+      "weights": {
+        "performance": 3,
+        "quality": 2,
+        "consistency": 1
+      },
+      "expected": 1200
+    }
+  ]
+}

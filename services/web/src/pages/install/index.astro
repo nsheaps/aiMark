@@ -1,0 +1,145 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Term from "../../components/Term.astro";
+
+const platforms = [
+  { os: "macOS", arch: "Apple Silicon (arm64)", asset: "aimark_darwin_arm64.tar.gz" },
+  { os: "macOS", arch: "Intel (amd64)", asset: "aimark_darwin_amd64.tar.gz" },
+  { os: "Linux", arch: "x86-64 (amd64)", asset: "aimark_linux_amd64.tar.gz" },
+  { os: "Linux", arch: "ARM (arm64)", asset: "aimark_linux_arm64.tar.gz" },
+  { os: "Windows", arch: "x86-64 (amd64)", asset: "aimark_windows_amd64.zip" },
+  { os: "Windows", arch: "ARM (arm64)", asset: "aimark_windows_arm64.zip" },
+];
+const releasesUrl = "https://github.com/nsheaps/aiMark/releases/latest";
+---
+
+<Layout
+  title="Install — aiMark"
+  description="Install the aimark CLI in one command, then benchmark your first model in minutes."
+>
+  <div class="container container--narrow page">
+    <h1>Install aiMark</h1>
+    <p class="lede">
+      One small <Term id="inference">CLI</Term>, no account needed. Install it, run
+      <code>aimark</code>, and your machine has a <Term id="system-score">System Score</Term> —
+      no models to pick, no runtimes to set up.
+    </p>
+
+    <h2 id="curl">Option 1 — one-line install (macOS &amp; Linux)</h2>
+    <pre><code>curl -fsSL https://aimark.dev/install.sh | sh</code></pre>
+    <p class="muted">
+      The script detects your OS and CPU, downloads the right binary from GitHub Releases, verifies
+      its checksum, and puts <code>aimark</code> on your PATH. You can
+      <a href="/install.sh">read the script</a> before running it.
+    </p>
+
+    <h2 id="manual">Option 2 — manual download</h2>
+    <p>
+      Grab a prebuilt binary from <a href={releasesUrl}>GitHub Releases</a>, unpack it, and place
+      it on your PATH:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">OS</th>
+            <th scope="col">Architecture</th>
+            <th scope="col">Asset</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            platforms.map((p) => (
+              <tr>
+                <td>{p.os}</td>
+                <td>{p.arch}</td>
+                <td>
+                  <a href={releasesUrl} class="mono">
+                    {p.asset}
+                  </a>
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Checksums (<code>checksums.txt</code>) are published with every release.</p>
+
+    <h2 id="brew">Option 3 — Homebrew</h2>
+    <p>
+      <span class="badge badge--info">coming soon</span> A Homebrew formula is on the way:
+      <code>brew install aimark</code>. Until then, use the curl script or a manual download.
+    </p>
+
+    <hr />
+
+    <h2 id="first-run">Your first benchmark: one word</h2>
+    <pre><code>aimark</code></pre>
+    <p>
+      That's the whole thing. No flags, no model to choose, no runtime to install first. When it
+      runs, <code>aimark</code>:
+    </p>
+    <ol>
+      <li>
+        <strong>Detects your hardware</strong> — CPU, RAM, GPU and <Term id="vram">VRAM</Term> (or
+        <Term id="unified-memory">unified memory</Term> on a Mac). This becomes your
+        <Term id="hardware-profile">hardware profile</Term>; anything undetectable degrades to
+        "unknown" and never blocks the run.
+      </li>
+      <li>
+        <strong>Assigns your <Term id="capability-class">capability class</Term></strong> —
+        Compact, Mainstream, Performance, or Ultra, based on usable accelerator memory — and tells
+        you why.
+      </li>
+      <li>
+        <strong>Downloads its <Term id="test-asset">test assets</Term></strong> — the pinned
+        llama.cpp build for your platform and your class's pinned test model (roughly 1–19 GB
+        depending on class), checksum-verified and cached for next time.
+      </li>
+      <li>
+        <strong>Runs the fixed program</strong> — chat feel, sustained throughput, and long-context
+        cells on the class model, plus an anchor cell and a
+        <Term id="validity-check">validity check</Term> — with live
+        <Term id="tokens-per-second">tokens-per-second</Term> and <Term id="ttft">TTFT</Term>
+        readouts.
+      </li>
+      <li>
+        <strong>Shows your score card and offers to upload</strong> — your
+        <Term id="system-score">System Score</Term> and class rank. No account required:
+        <Term id="anonymous-submission">anonymous submissions</Term> get a
+        <Term id="claim-token">claim token</Term> so you can manage the result later. The server
+        verifies every cell and recomputes the score before it counts.
+      </li>
+    </ol>
+    <p class="muted">
+      <code>aimark --yes</code> auto-uploads, <code>aimark --no-upload</code> keeps everything
+      local, <code>aimark --json</code> is for scripts.
+    </p>
+
+    <div class="callout">
+      <strong>Advanced mode.</strong> The pick-your-own machinery is still there:
+      <code>aimark run sprint-1 --target ollama:llama3.1:8b</code> benchmarks any
+      <Term id="model">model</Term> on any <Term id="runtime">runtime</Term> (or a hosted
+      <Term id="provider">provider</Term> with your own <Term id="api-key">API key</Term>) against
+      the per-suite boards. Advanced runs feed the <a href="/model-fit/">model-fit matrix</a> but
+      never the class system leaderboards.
+    </div>
+
+    <h2 id="next">Where to next</h2>
+    <div class="card-grid">
+      <a class="card" href="/leaderboard/systems/mainstream/">
+        <h3>See the boards</h3>
+        <p>Find your machine's row in its class and see how your hardware stacks up.</p>
+      </a>
+      <a class="card" href="/docs/methodology/">
+        <h3>Understand your score</h3>
+        <p>What ~1000 points means, and how sub-scores roll up into the composite.</p>
+      </a>
+      <a class="card" href="/docs/glossary/">
+        <h3>Learn the language</h3>
+        <p>Every term the CLI just threw at you, defined in plain English.</p>
+      </a>
+    </div>
+  </div>
+</Layout>

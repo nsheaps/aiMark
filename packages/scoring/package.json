@@ -1,0 +1,17 @@
+{
+  "name": "@aimark/scoring",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Canonical aiMark scoring implementation (the server-side recompute). The Go CLI mirrors this against shared golden vectors.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "prettier --check src test && tsc --noEmit",
+    "format": "prettier --write src test && tsc --noEmit"
+  },
+  "dependencies": {
+    "@aimark/schema": "workspace:*"
+  }
+}

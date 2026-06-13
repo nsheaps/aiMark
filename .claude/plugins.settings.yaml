@@ -1,0 +1,43 @@
+# Plugin configuration for nsheaps/aiMark.
+#
+# Pairs with .claude/settings.json (which enables the plugins) and tells
+# each plugin how to behave for this repo. Read by the ai-mktpl plugins'
+# SessionStart hooks. Modelled on nsheaps/agents .claude/plugins.settings.yaml.
+#
+# The 1pass + github-app config uses the Agent-Jack vault: the OP service
+# account token provisioned for sessions in this repo has access to it,
+# and aiMark engineering work runs under Jack's GitHub App identity.
+# Flip the vault name in `1pass.opExec.items` and `github-app.ref` to
+# switch agents.
+
+1pass:
+  opExec:
+    items:
+      - 'op://Agent-Jack/ENVIRONMENT'
+      - 'op://Agent-Jack/github--app--jack'
+    targets:
+      # envLocal: writes $AGENT_HOME_DIR/.env.local (sourced via .envrc in
+      # agent launches). sessionStartBashEnv: appends `export` lines into
+      # $CLAUDE_ENV_FILE so the github-app plugin's SessionStart hook sees
+      # GITHUB_APP_ID / GITHUB_INSTALLATION_ID / GITHUB_APP_PRIVATE_KEY
+      # without needing a prior shell session.
+      - envLocal
+      - sessionStartBashEnv
+    recursiveResolve: true
+
+github-app:
+  ref: 'op://Agent-Jack/github--app--jack'
+  autoGitConfig: true
+
+github:
+  # Install gh on web sessions so the github-app token is usable via gh
+  # immediately (this repo doesn't manage gh through mise.toml).
+  autoInstall: true
+  autoAuthCheck: true
+
+mise:
+  autoInstallTools: true
+  autoTrust: true
+
+# dangerous-bypass has no settings — enabling it in settings.json
+# auto-approves all permission prompts for autonomous sessions.
