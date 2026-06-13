@@ -235,9 +235,7 @@
       "indexes": {
         "runs_payload_sha256_unique": {
           "name": "runs_payload_sha256_unique",
-          "columns": [
-            "payload_sha256"
-          ],
+          "columns": ["payload_sha256"],
           "isUnique": true
         }
       },
@@ -275,10 +273,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "scores_run_id_name_pk": {
-          "columns": [
-            "run_id",
-            "name"
-          ],
+          "columns": ["run_id", "name"],
           "name": "scores_run_id_name_pk"
         }
       },
@@ -321,10 +316,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "suites_id_version_pk": {
-          "columns": [
-            "id",
-            "version"
-          ],
+          "columns": ["id", "version"],
           "name": "suites_id_version_pk"
         }
       },
@@ -398,10 +390,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "programs_id_version_pk": {
-          "columns": [
-            "id",
-            "version"
-          ],
+          "columns": ["id", "version"],
           "name": "programs_id_version_pk"
         }
       },
@@ -521,9 +510,7 @@
       "indexes": {
         "benchmarks_payload_sha256_unique": {
           "name": "benchmarks_payload_sha256_unique",
-          "columns": [
-            "payload_sha256"
-          ],
+          "columns": ["payload_sha256"],
           "isUnique": true
         }
       },
@@ -561,10 +548,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "benchmark_scores_bench_id_name_pk": {
-          "columns": [
-            "bench_id",
-            "name"
-          ],
+          "columns": ["bench_id", "name"],
           "name": "benchmark_scores_bench_id_name_pk"
         }
       },
