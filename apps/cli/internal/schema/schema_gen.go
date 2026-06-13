@@ -4,6 +4,343 @@ package schema
 
 import "time"
 
+// A frozen zero-choice benchmark program: capability classes, pinned runtime
+// builds, pinned model assets, and the (suite, model) cells each class runs. The
+// user never chooses any of this — aimark classifies the machine and executes its
+// class program.
+type BenchmarkProgramV1Json struct {
+	// models[].id every class also runs (cross-class reference cell)
+	AnchorModel *string `json:"anchor_model,omitempty" yaml:"anchor_model,omitempty" mapstructure:"anchor_model,omitempty"`
+
+	// The fixed test program. class '*' applies to every class; model 'class'
+	// resolves to the class model, 'anchor' to anchor_model.
+	Cells []BenchmarkProgramV1JsonCellsElem `json:"cells" yaml:"cells" mapstructure:"cells"`
+
+	// Classes corresponds to the JSON schema field "classes".
+	Classes []BenchmarkProgramV1JsonClassesElem `json:"classes" yaml:"classes" mapstructure:"classes"`
+
+	// Description corresponds to the JSON schema field "description".
+	Description *string `json:"description,omitempty" yaml:"description,omitempty" mapstructure:"description,omitempty"`
+
+	// Id corresponds to the JSON schema field "id".
+	Id string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Pinned model assets referenced by cells
+	Models []BenchmarkProgramV1JsonModelsElem `json:"models,omitempty" yaml:"models,omitempty" mapstructure:"models,omitempty"`
+
+	// The pinned inference engine — one engine version per program version, like
+	// 3DMark shipping its renderer
+	Runtime BenchmarkProgramV1JsonRuntime `json:"runtime" yaml:"runtime" mapstructure:"runtime"`
+
+	// Status corresponds to the JSON schema field "status".
+	Status BenchmarkProgramV1JsonStatus `json:"status" yaml:"status" mapstructure:"status"`
+
+	// Title corresponds to the JSON schema field "title".
+	Title string `json:"title" yaml:"title" mapstructure:"title"`
+
+	// Version corresponds to the JSON schema field "version".
+	Version int `json:"version" yaml:"version" mapstructure:"version"`
+}
+
+type BenchmarkProgramV1JsonCellsElem struct {
+	// Class corresponds to the JSON schema field "class".
+	Class string `json:"class" yaml:"class" mapstructure:"class"`
+
+	// Id corresponds to the JSON schema field "id".
+	Id string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Model corresponds to the JSON schema field "model".
+	Model BenchmarkProgramV1JsonCellsElemModel `json:"model" yaml:"model" mapstructure:"model"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params BenchmarkProgramV1JsonCellsElemParams `json:"params,omitempty" yaml:"params,omitempty" mapstructure:"params,omitempty"`
+
+	// RepsOverride corresponds to the JSON schema field "reps_override".
+	RepsOverride *int `json:"reps_override,omitempty" yaml:"reps_override,omitempty" mapstructure:"reps_override,omitempty"`
+
+	// score cells feed the composite; validity cells (graded quality) only flag
+	// broken/cheated runs
+	Role BenchmarkProgramV1JsonCellsElemRole `json:"role" yaml:"role" mapstructure:"role"`
+
+	// Suite corresponds to the JSON schema field "suite".
+	Suite string `json:"suite" yaml:"suite" mapstructure:"suite"`
+
+	// SuiteVersion corresponds to the JSON schema field "suite_version".
+	SuiteVersion int `json:"suite_version" yaml:"suite_version" mapstructure:"suite_version"`
+
+	// validity cells: quality_accuracy below this flags the benchmark
+	ValidityMinAccuracy *float64 `json:"validity_min_accuracy,omitempty" yaml:"validity_min_accuracy,omitempty" mapstructure:"validity_min_accuracy,omitempty"`
+
+	// Weight corresponds to the JSON schema field "weight".
+	Weight *float64 `json:"weight,omitempty" yaml:"weight,omitempty" mapstructure:"weight,omitempty"`
+}
+
+type BenchmarkProgramV1JsonCellsElemModel string
+
+const BenchmarkProgramV1JsonCellsElemModelAnchor BenchmarkProgramV1JsonCellsElemModel = "anchor"
+const BenchmarkProgramV1JsonCellsElemModelClass BenchmarkProgramV1JsonCellsElemModel = "class"
+
+type BenchmarkProgramV1JsonCellsElemParams map[string]interface{}
+
+type BenchmarkProgramV1JsonCellsElemRole string
+
+const BenchmarkProgramV1JsonCellsElemRoleScore BenchmarkProgramV1JsonCellsElemRole = "score"
+const BenchmarkProgramV1JsonCellsElemRoleValidity BenchmarkProgramV1JsonCellsElemRole = "validity"
+
+type BenchmarkProgramV1JsonClassesElem struct {
+	// AccelMemMaxGb corresponds to the JSON schema field "accel_mem_max_gb".
+	AccelMemMaxGb *float64 `json:"accel_mem_max_gb,omitempty" yaml:"accel_mem_max_gb,omitempty" mapstructure:"accel_mem_max_gb,omitempty"`
+
+	// AccelMemMinGb corresponds to the JSON schema field "accel_mem_min_gb".
+	AccelMemMinGb *float64 `json:"accel_mem_min_gb,omitempty" yaml:"accel_mem_min_gb,omitempty" mapstructure:"accel_mem_min_gb,omitempty"`
+
+	// num_ctx used for class cells
+	ContextBudget *int `json:"context_budget,omitempty" yaml:"context_budget,omitempty" mapstructure:"context_budget,omitempty"`
+
+	// true = this class accepts CPU-only machines (they classify here regardless of
+	// RAM)
+	CpuOnly *bool `json:"cpu_only,omitempty" yaml:"cpu_only,omitempty" mapstructure:"cpu_only,omitempty"`
+
+	// Description corresponds to the JSON schema field "description".
+	Description *string `json:"description,omitempty" yaml:"description,omitempty" mapstructure:"description,omitempty"`
+
+	// Id corresponds to the JSON schema field "id".
+	Id string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// models[].id of the class test model
+	Model string `json:"model" yaml:"model" mapstructure:"model"`
+
+	// Title corresponds to the JSON schema field "title".
+	Title string `json:"title" yaml:"title" mapstructure:"title"`
+}
+
+type BenchmarkProgramV1JsonModelsElem struct {
+	// Family corresponds to the JSON schema field "family".
+	Family *string `json:"family,omitempty" yaml:"family,omitempty" mapstructure:"family,omitempty"`
+
+	// Id corresponds to the JSON schema field "id".
+	Id string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// ParamsB corresponds to the JSON schema field "params_b".
+	ParamsB *float64 `json:"params_b,omitempty" yaml:"params_b,omitempty" mapstructure:"params_b,omitempty"`
+
+	// Quant corresponds to the JSON schema field "quant".
+	Quant *string `json:"quant,omitempty" yaml:"quant,omitempty" mapstructure:"quant,omitempty"`
+
+	// Sha256 corresponds to the JSON schema field "sha256".
+	Sha256 string `json:"sha256" yaml:"sha256" mapstructure:"sha256"`
+
+	// SizeBytes corresponds to the JSON schema field "size_bytes".
+	SizeBytes *int `json:"size_bytes,omitempty" yaml:"size_bytes,omitempty" mapstructure:"size_bytes,omitempty"`
+
+	// Url corresponds to the JSON schema field "url".
+	Url string `json:"url" yaml:"url" mapstructure:"url"`
+}
+
+// The pinned inference engine — one engine version per program version, like
+// 3DMark shipping its renderer
+type BenchmarkProgramV1JsonRuntime struct {
+	// Assets corresponds to the JSON schema field "assets".
+	Assets []BenchmarkProgramV1JsonRuntimeAssetsElem `json:"assets" yaml:"assets" mapstructure:"assets"`
+
+	// Build corresponds to the JSON schema field "build".
+	Build string `json:"build" yaml:"build" mapstructure:"build"`
+
+	// Engine corresponds to the JSON schema field "engine".
+	Engine string `json:"engine" yaml:"engine" mapstructure:"engine"`
+}
+
+type BenchmarkProgramV1JsonRuntimeAssetsElem struct {
+	// Accel corresponds to the JSON schema field "accel".
+	Accel BenchmarkProgramV1JsonRuntimeAssetsElemAccel `json:"accel" yaml:"accel" mapstructure:"accel"`
+
+	// Arch corresponds to the JSON schema field "arch".
+	Arch BenchmarkProgramV1JsonRuntimeAssetsElemArch `json:"arch" yaml:"arch" mapstructure:"arch"`
+
+	// Os corresponds to the JSON schema field "os".
+	Os BenchmarkProgramV1JsonRuntimeAssetsElemOs `json:"os" yaml:"os" mapstructure:"os"`
+
+	// Path of the server binary inside the archive
+	ServerPath *string `json:"server_path,omitempty" yaml:"server_path,omitempty" mapstructure:"server_path,omitempty"`
+
+	// null = unverified at freeze time; the CLI warns (trust-on-first-use) instead of
+	// failing
+	Sha256 *string `json:"sha256,omitempty" yaml:"sha256,omitempty" mapstructure:"sha256,omitempty"`
+
+	// SizeBytes corresponds to the JSON schema field "size_bytes".
+	SizeBytes *int `json:"size_bytes,omitempty" yaml:"size_bytes,omitempty" mapstructure:"size_bytes,omitempty"`
+
+	// Url corresponds to the JSON schema field "url".
+	Url string `json:"url" yaml:"url" mapstructure:"url"`
+}
+
+type BenchmarkProgramV1JsonRuntimeAssetsElemAccel string
+
+const BenchmarkProgramV1JsonRuntimeAssetsElemAccelCpu BenchmarkProgramV1JsonRuntimeAssetsElemAccel = "cpu"
+const BenchmarkProgramV1JsonRuntimeAssetsElemAccelCuda BenchmarkProgramV1JsonRuntimeAssetsElemAccel = "cuda"
+const BenchmarkProgramV1JsonRuntimeAssetsElemAccelMetal BenchmarkProgramV1JsonRuntimeAssetsElemAccel = "metal"
+const BenchmarkProgramV1JsonRuntimeAssetsElemAccelVulkan BenchmarkProgramV1JsonRuntimeAssetsElemAccel = "vulkan"
+
+type BenchmarkProgramV1JsonRuntimeAssetsElemArch string
+
+const BenchmarkProgramV1JsonRuntimeAssetsElemArchAmd64 BenchmarkProgramV1JsonRuntimeAssetsElemArch = "amd64"
+const BenchmarkProgramV1JsonRuntimeAssetsElemArchArm64 BenchmarkProgramV1JsonRuntimeAssetsElemArch = "arm64"
+
+type BenchmarkProgramV1JsonRuntimeAssetsElemOs string
+
+const BenchmarkProgramV1JsonRuntimeAssetsElemOsDarwin BenchmarkProgramV1JsonRuntimeAssetsElemOs = "darwin"
+const BenchmarkProgramV1JsonRuntimeAssetsElemOsLinux BenchmarkProgramV1JsonRuntimeAssetsElemOs = "linux"
+const BenchmarkProgramV1JsonRuntimeAssetsElemOsWindows BenchmarkProgramV1JsonRuntimeAssetsElemOs = "windows"
+
+type BenchmarkProgramV1JsonStatus string
+
+const BenchmarkProgramV1JsonStatusDraft BenchmarkProgramV1JsonStatus = "draft"
+const BenchmarkProgramV1JsonStatusFrozen BenchmarkProgramV1JsonStatus = "frozen"
+const BenchmarkProgramV1JsonStatusRetired BenchmarkProgramV1JsonStatus = "retired"
+
+// A zero-choice benchmark result: one machine, one capability class, the fixed
+// program's cells, one aiMark System Score. Cells are submitted first as run.v1
+// envelopes sharing bench_id; this envelope ties them together. The server
+// recomputes the composite from the cell scores it verified.
+type BenchmarkV1Json struct {
+	// BenchId corresponds to the JSON schema field "bench_id".
+	BenchId string `json:"bench_id" yaml:"bench_id" mapstructure:"bench_id"`
+
+	// Cells corresponds to the JSON schema field "cells".
+	Cells []BenchmarkV1JsonCellsElem `json:"cells" yaml:"cells" mapstructure:"cells"`
+
+	// Class corresponds to the JSON schema field "class".
+	Class string `json:"class" yaml:"class" mapstructure:"class"`
+
+	// Why the machine landed in its class — shown on the detail page
+	Classification *BenchmarkV1JsonClassification `json:"classification,omitempty" yaml:"classification,omitempty" mapstructure:"classification,omitempty"`
+
+	// Cli corresponds to the JSON schema field "cli".
+	Cli BenchmarkV1JsonCli `json:"cli" yaml:"cli" mapstructure:"cli"`
+
+	// CreatedAt corresponds to the JSON schema field "created_at".
+	CreatedAt time.Time `json:"created_at" yaml:"created_at" mapstructure:"created_at"`
+
+	// Environment corresponds to the JSON schema field "environment".
+	Environment *BenchmarkV1JsonEnvironment `json:"environment,omitempty" yaml:"environment,omitempty" mapstructure:"environment,omitempty"`
+
+	// Integrity corresponds to the JSON schema field "integrity".
+	Integrity *BenchmarkV1JsonIntegrity `json:"integrity,omitempty" yaml:"integrity,omitempty" mapstructure:"integrity,omitempty"`
+
+	// Program corresponds to the JSON schema field "program".
+	Program BenchmarkV1JsonProgram `json:"program" yaml:"program" mapstructure:"program"`
+
+	// CLI-computed; the server recompute from verified cells is canonical
+	ProvisionalScores *BenchmarkV1JsonProvisionalScores `json:"provisional_scores,omitempty" yaml:"provisional_scores,omitempty" mapstructure:"provisional_scores,omitempty"`
+
+	// SchemaVersion corresponds to the JSON schema field "schema_version".
+	SchemaVersion string `json:"schema_version" yaml:"schema_version" mapstructure:"schema_version"`
+
+	// Source corresponds to the JSON schema field "source".
+	Source BenchmarkV1JsonSource `json:"source" yaml:"source" mapstructure:"source"`
+}
+
+type BenchmarkV1JsonCellsElem struct {
+	// CellId corresponds to the JSON schema field "cell_id".
+	CellId string `json:"cell_id" yaml:"cell_id" mapstructure:"cell_id"`
+
+	// Role corresponds to the JSON schema field "role".
+	Role BenchmarkV1JsonCellsElemRole `json:"role" yaml:"role" mapstructure:"role"`
+
+	// RunId corresponds to the JSON schema field "run_id".
+	RunId string `json:"run_id" yaml:"run_id" mapstructure:"run_id"`
+}
+
+type BenchmarkV1JsonCellsElemRole string
+
+const BenchmarkV1JsonCellsElemRoleScore BenchmarkV1JsonCellsElemRole = "score"
+const BenchmarkV1JsonCellsElemRoleValidity BenchmarkV1JsonCellsElemRole = "validity"
+
+// Why the machine landed in its class — shown on the detail page
+type BenchmarkV1JsonClassification struct {
+	// AccelMemGb corresponds to the JSON schema field "accel_mem_gb".
+	AccelMemGb *float64 `json:"accel_mem_gb,omitempty" yaml:"accel_mem_gb,omitempty" mapstructure:"accel_mem_gb,omitempty"`
+
+	// CpuOnly corresponds to the JSON schema field "cpu_only".
+	CpuOnly *bool `json:"cpu_only,omitempty" yaml:"cpu_only,omitempty" mapstructure:"cpu_only,omitempty"`
+
+	// Detail corresponds to the JSON schema field "detail".
+	Detail *string `json:"detail,omitempty" yaml:"detail,omitempty" mapstructure:"detail,omitempty"`
+
+	// UnifiedMemory corresponds to the JSON schema field "unified_memory".
+	UnifiedMemory *bool `json:"unified_memory,omitempty" yaml:"unified_memory,omitempty" mapstructure:"unified_memory,omitempty"`
+}
+
+type BenchmarkV1JsonCli struct {
+	// Arch corresponds to the JSON schema field "arch".
+	Arch BenchmarkV1JsonCliArch `json:"arch" yaml:"arch" mapstructure:"arch"`
+
+	// Commit corresponds to the JSON schema field "commit".
+	Commit *string `json:"commit,omitempty" yaml:"commit,omitempty" mapstructure:"commit,omitempty"`
+
+	// Os corresponds to the JSON schema field "os".
+	Os BenchmarkV1JsonCliOs `json:"os" yaml:"os" mapstructure:"os"`
+
+	// Version corresponds to the JSON schema field "version".
+	Version string `json:"version" yaml:"version" mapstructure:"version"`
+}
+
+type BenchmarkV1JsonCliArch string
+
+const BenchmarkV1JsonCliArchAmd64 BenchmarkV1JsonCliArch = "amd64"
+const BenchmarkV1JsonCliArchArm64 BenchmarkV1JsonCliArch = "arm64"
+
+type BenchmarkV1JsonCliOs string
+
+const BenchmarkV1JsonCliOsDarwin BenchmarkV1JsonCliOs = "darwin"
+const BenchmarkV1JsonCliOsLinux BenchmarkV1JsonCliOs = "linux"
+const BenchmarkV1JsonCliOsWindows BenchmarkV1JsonCliOs = "windows"
+
+type BenchmarkV1JsonEnvironment struct {
+	// HardwareProfile corresponds to the JSON schema field "hardware_profile".
+	HardwareProfile *HardwareProfile `json:"hardware_profile,omitempty" yaml:"hardware_profile,omitempty" mapstructure:"hardware_profile,omitempty"`
+}
+
+type BenchmarkV1JsonIntegrity struct {
+	// Hmac corresponds to the JSON schema field "hmac".
+	Hmac *string `json:"hmac,omitempty" yaml:"hmac,omitempty" mapstructure:"hmac,omitempty"`
+
+	// KeyGen corresponds to the JSON schema field "key_gen".
+	KeyGen *string `json:"key_gen,omitempty" yaml:"key_gen,omitempty" mapstructure:"key_gen,omitempty"`
+
+	// Nonce corresponds to the JSON schema field "nonce".
+	Nonce string `json:"nonce" yaml:"nonce" mapstructure:"nonce"`
+
+	// PayloadSha256 corresponds to the JSON schema field "payload_sha256".
+	PayloadSha256 string `json:"payload_sha256" yaml:"payload_sha256" mapstructure:"payload_sha256"`
+}
+
+type BenchmarkV1JsonProgram struct {
+	// Id corresponds to the JSON schema field "id".
+	Id string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Version corresponds to the JSON schema field "version".
+	Version int `json:"version" yaml:"version" mapstructure:"version"`
+}
+
+// CLI-computed; the server recompute from verified cells is canonical
+type BenchmarkV1JsonProvisionalScores struct {
+	// Composite corresponds to the JSON schema field "composite".
+	Composite *float64 `json:"composite,omitempty" yaml:"composite,omitempty" mapstructure:"composite,omitempty"`
+
+	// Consistency corresponds to the JSON schema field "consistency".
+	Consistency *float64 `json:"consistency,omitempty" yaml:"consistency,omitempty" mapstructure:"consistency,omitempty"`
+
+	// Performance corresponds to the JSON schema field "performance".
+	Performance *float64 `json:"performance,omitempty" yaml:"performance,omitempty" mapstructure:"performance,omitempty"`
+}
+
+type BenchmarkV1JsonSource string
+
+const BenchmarkV1JsonSourceCi BenchmarkV1JsonSource = "ci"
+const BenchmarkV1JsonSourceDev BenchmarkV1JsonSource = "dev"
+const BenchmarkV1JsonSourceUser BenchmarkV1JsonSource = "user"
+
 type HardwareProfile struct {
 	// Arch corresponds to the JSON schema field "arch".
 	Arch string `json:"arch" yaml:"arch" mapstructure:"arch"`
@@ -51,6 +388,9 @@ type HardwareProfileGpusElem struct {
 // parameter vector. This envelope is what `aimark submit` sends (raw samples
 // upload separately to blob storage).
 type RunV1Json struct {
+	// Shared ULID when this run is one cell of a zero-choice benchmark program
+	BenchId *string `json:"bench_id,omitempty" yaml:"bench_id,omitempty" mapstructure:"bench_id,omitempty"`
+
 	// Cli corresponds to the JSON schema field "cli".
 	Cli RunV1JsonCli `json:"cli" yaml:"cli" mapstructure:"cli"`
 

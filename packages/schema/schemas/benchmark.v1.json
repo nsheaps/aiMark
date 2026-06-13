@@ -1,0 +1,216 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aimark.dev/schemas/benchmark.v1.json",
+  "title": "AimarkBenchmarkV1",
+  "description": "A zero-choice benchmark result: one machine, one capability class, the fixed program's cells, one aiMark System Score. Cells are submitted first as run.v1 envelopes sharing bench_id; this envelope ties them together. The server recomputes the composite from the cell scores it verified.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bench_id",
+    "created_at",
+    "source",
+    "cli",
+    "program",
+    "class",
+    "cells"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "aimark.benchmark.v1"
+    },
+    "bench_id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["user", "ci", "dev"]
+    },
+    "cli": {
+      "type": "object",
+      "required": ["version", "os", "arch"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "os": {
+          "type": "string",
+          "enum": ["darwin", "linux", "windows"]
+        },
+        "arch": {
+          "type": "string",
+          "enum": ["amd64", "arm64"]
+        }
+      }
+    },
+    "program": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "class": {
+      "type": "string"
+    },
+    "classification": {
+      "type": "object",
+      "description": "Why the machine landed in its class \u2014 shown on the detail page",
+      "additionalProperties": false,
+      "properties": {
+        "accel_mem_gb": {
+          "type": "number"
+        },
+        "cpu_only": {
+          "type": "boolean"
+        },
+        "unified_memory": {
+          "type": "boolean"
+        },
+        "detail": {
+          "type": "string"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hardware_profile": {
+          "$ref": "#/definitions/hardwareProfile"
+        }
+      }
+    },
+    "cells": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["cell_id", "run_id", "role"],
+        "additionalProperties": false,
+        "properties": {
+          "cell_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string",
+            "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["score", "validity"]
+          }
+        }
+      }
+    },
+    "provisional_scores": {
+      "type": "object",
+      "description": "CLI-computed; the server recompute from verified cells is canonical",
+      "additionalProperties": false,
+      "properties": {
+        "performance": {
+          "type": "number"
+        },
+        "consistency": {
+          "type": "number"
+        },
+        "composite": {
+          "type": "number"
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["payload_sha256", "nonce"],
+      "additionalProperties": false,
+      "properties": {
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "hmac": {
+          "type": "string"
+        },
+        "key_gen": {
+          "type": "string"
+        },
+        "nonce": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "hardwareProfile": {
+      "type": "object",
+      "required": ["os", "arch"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Hash of the canonical hardware fields, so identical rigs cluster"
+        },
+        "cpu_model": {
+          "type": "string"
+        },
+        "cpu_cores_physical": {
+          "type": "integer"
+        },
+        "cpu_cores_logical": {
+          "type": "integer"
+        },
+        "ram_gb": {
+          "type": "number"
+        },
+        "unified_memory": {
+          "type": "boolean"
+        },
+        "gpus": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "vram_gb": {
+                "type": "number"
+              },
+              "vendor": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "os": {
+          "type": "string"
+        },
+        "os_version": {
+          "type": "string"
+        },
+        "arch": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

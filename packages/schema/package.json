@@ -10,7 +10,7 @@
     "test": "bun test",
     "lint": "prettier --check src schemas && tsc --noEmit && bun run codegen:check",
     "format": "prettier --write src schemas && tsc --noEmit && bun run codegen:check",
-    "codegen": "for s in run.v1 suite-manifest.v1 samples.v1; do json2ts --input schemas/$s.json --output src/generated/$s.ts --bannerComment \"/* Generated from schemas/$s.json — do not edit. Run \\`mise run codegen\\`. */\"; done && prettier --write src/generated",
+    "codegen": "for s in run.v1 suite-manifest.v1 samples.v1 benchmark-program.v1 benchmark.v1; do json2ts --input schemas/$s.json --output src/generated/$s.ts --bannerComment \"/* Generated from schemas/$s.json — do not edit. Run \\`mise run codegen\\`. */\"; done && prettier --write src/generated",
     "codegen:check": "bun run codegen && git diff --exit-code -- src/generated || (echo 'Generated types are stale. Run `mise run codegen` and commit.' && exit 1)"
   },
   "dependencies": {

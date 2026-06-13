@@ -13,6 +13,10 @@ export interface AimarkRunV1 {
    * Shared ULID when this run is one cell of a parameter sweep
    */
   sweep_id?: string;
+  /**
+   * Shared ULID when this run is one cell of a zero-choice benchmark program
+   */
+  bench_id?: string;
   created_at: string;
   /**
    * Where the run originated. The CLI auto-detects CI environments (CI/GITHUB_ACTIONS env vars) and flags them; ci and dev runs are excluded from default leaderboards.
