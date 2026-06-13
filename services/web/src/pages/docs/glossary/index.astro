@@ -1,0 +1,202 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { categories, glossary } from "../../../data/glossary";
+
+const sections = categories.map((cat) => ({
+  ...cat,
+  entries: glossary
+    .filter((g) => g.category === cat.id)
+    .sort((a, b) => a.term.localeCompare(b.term)),
+}));
+const total = glossary.length;
+---
+
+<Layout
+  title="Glossary — aiMark"
+  description="Every AI and benchmarking term used on aiMark, defined in plain English. No circular jargon."
+>
+  <div class="container container--narrow page">
+    <h1>Glossary</h1>
+    <p class="lede">
+      {total} terms, defined in plain English. Anywhere on this site, dotted-underlined words link
+      back here — hover them for the short version. No definition assumes you already know the
+      jargon.
+    </p>
+
+    <div class="glossary-filter">
+      <label for="glossary-search">Filter terms</label>
+      <input
+        type="search"
+        id="glossary-search"
+        placeholder="Type to filter… e.g. token, p95, VRAM"
+        autocomplete="off"
+      />
+      <p class="muted" id="glossary-count" role="status" aria-live="polite"></p>
+    </div>
+
+    <nav class="toc" aria-label="Glossary categories">
+      <ul>
+        {
+          sections.map((section) => (
+            <li>
+              <a href={`#cat-${section.id}`}>{section.title}</a>
+              <span class="muted">({section.entries.length})</span>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    {
+      sections.map((section) => (
+        <section class="glossary-section" data-category={section.id}>
+          <h2 id={`cat-${section.id}`}>{section.title}</h2>
+          <p class="muted">{section.blurb}</p>
+          <dl>
+            {section.entries.map((entry) => (
+              <div
+                class="glossary-entry"
+                id={entry.id}
+                data-haystack={`${entry.term} ${entry.short_def} ${entry.long_def}`.toLowerCase()}
+              >
+                <dt>
+                  <a class="anchor" href={`#${entry.id}`} aria-label={`Link to ${entry.term}`}>
+                    #
+                  </a>
+                  {entry.term}
+                </dt>
+                <dd>
+                  <p class="short-def">{entry.short_def}</p>
+                  <p class="long-def">{entry.long_def}</p>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))
+    }
+
+    <p class="muted" id="glossary-empty" hidden>
+      No terms match that filter. Missing a term you expected? The glossary grows with the
+      product — check back soon.
+    </p>
+  </div>
+</Layout>
+
+<script>
+  const input = document.getElementById("glossary-search") as HTMLInputElement;
+  const count = document.getElementById("glossary-count") as HTMLElement;
+  const empty = document.getElementById("glossary-empty") as HTMLElement;
+  const entries = Array.from(document.querySelectorAll<HTMLElement>(".glossary-entry"));
+  const sections = Array.from(document.querySelectorAll<HTMLElement>(".glossary-section"));
+  const toc = document.querySelector<HTMLElement>(".toc");
+
+  function applyFilter() {
+    const needle = input.value.trim().toLowerCase();
+    let shown = 0;
+    for (const entry of entries) {
+      const match = !needle || (entry.dataset.haystack ?? "").includes(needle);
+      entry.hidden = !match;
+      if (match) shown++;
+    }
+    for (const section of sections) {
+      const any = section.querySelector(".glossary-entry:not([hidden])") !== null;
+      section.hidden = !any;
+    }
+    if (toc) toc.hidden = needle !== "";
+    empty.hidden = shown !== 0;
+    count.textContent = needle ? `${shown} of ${entries.length} terms match` : "";
+  }
+
+  input.addEventListener("input", applyFilter);
+</script>
+
+<style>
+  .glossary-filter {
+    margin: 1.5rem 0;
+  }
+
+  .glossary-filter label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .glossary-filter input {
+    width: 100%;
+    max-width: 28rem;
+  }
+
+  .glossary-filter p {
+    min-height: 1.2em;
+    font-size: 0.85rem;
+    margin: 0.4rem 0 0;
+  }
+
+  .toc ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+    display: flex;
+    gap: 0.5rem 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .toc .muted {
+    font-size: 0.85rem;
+    margin-left: 0.2rem;
+  }
+
+  .glossary-section h2 {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem;
+  }
+
+  dl {
+    margin: 1.25rem 0 0;
+  }
+
+  .glossary-entry {
+    padding: 0.9rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  }
+
+  .glossary-entry:target {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    border-radius: 8px;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  dt {
+    font-weight: 700;
+    font-size: 1.02rem;
+  }
+
+  dd {
+    margin: 0.25rem 0 0;
+  }
+
+  .short-def {
+    margin: 0;
+    color: var(--text);
+  }
+
+  .long-def {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .anchor {
+    color: var(--faint);
+    margin-right: 0.4rem;
+    font-weight: 400;
+  }
+
+  .anchor:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+</style>

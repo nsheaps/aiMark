@@ -1,6 +1,6 @@
 # aiMark Platform Specification (Draft)
 
-> Status: **draft** — approved as the initial build plan on 2026-06-12.
+> Status: **draft** — approved as the initial build plan on 2026-06-12. Implementation notes appended inline as decisions land; delivery state tracked in `.claude/plans/delivery-goals.md`.
 
 ## Overview
 
@@ -58,7 +58,7 @@ Protocol per suite: fixed prompts/decoding params (temp 0 where determinism matt
 
 ### Parameter matrix & sweeps ("which parameters vary the scores")
 
-- **Captured dimensions on every run**: model + param count + quantization, runtime/provider + version + region, hardware profile (CPU/cores/RAM/GPU+VRAM/unified-memory/OS), context length, concurrency, prompt caching, streaming flags, timestamp, CLI version, pricing snapshot.
+- **Captured dimensions on every run**: model + param count + quantization, runtime/provider + version + region, hardware profile (CPU/cores/RAM/GPU+VRAM/unified-memory/OS), context length, concurrency, prompt caching, streaming flags, timestamp, CLI version, pricing snapshot, and **`source` (`user` | `ci` | `dev`)** — the CLI auto-flags runs executing under CI environments; `ci`/`dev` runs are accepted and scored but excluded from default leaderboards (`include_ci=true` opt-in).
 - **Sweeps**: `aimark run --sweep sweep.yaml` takes a matrix (model × num_ctx × concurrency × …); each cell is an independent scored run sharing a `sweep_id`.
 - **Corpus-level answer**: every leaderboard is sliceable by any captured dimension, and the **parameter-impact explorer** computes effect sizes across all submissions ("quantization moves Sprint score X% on average").
 
@@ -135,9 +135,11 @@ aiMark/
 
 - `test.yaml` — agents-repo shape: autofix lint job (`mise run format` + auto-commit), build, test; adds Go/golangci caches.
 - `deploy.yaml` — wrangler deploy (API Worker + static assets) on main; **preview deploy per PR** (workers.dev preview URL commented on the PR); D1 migrations applied via wrangler in the deploy job.
-- `release-cli.yaml` — `cli/v*` tags → goreleaser: darwin/linux/windows × amd64/arm64, checksums, GitHub Release, Homebrew tap PR, `install.sh` curl installer served from the site.
-- `release-web.yaml` — release-it + conventional changelog on main.
-- **Three independent version streams**: CLI semver (`cli/vX.Y.Z`), web/API semver (root), suite versions (named integers like `sprint-1`, frozen deliberately — bumping resets a leaderboard).
+- `release-cli.yaml` — **`v*` tags** → goreleaser: darwin/linux/windows × amd64/arm64, checksums, GitHub Release, `install.sh` curl installer served from the site. (Implementation note: the CLI owns plain `v*` tags because goreleaser's monorepo tag prefixes are a paid feature; Homebrew tap publishing is prepared but disabled until the tap repo is reachable.)
+- `release-web.yaml` — release-it + conventional changelog, **`web-v*` tags**, manual dispatch (deploys themselves are continuous on main).
+- `e2e.yaml` — full product loop on every PR against `tools/mock-llm` (deterministic OpenAI-compatible SSE server, no model downloads): build CLI → benchmark → **anonymous submit** to a local API → assert the run is canonically scored, **flagged `source=ci`**, hidden from the default leaderboard, visible with `include_ci=true`, and claim-deletable. A real-Ollama variant (tiny model) runs nightly/on dispatch only.
+- `docs-images.yaml` — weekly/manual regeneration of docs images: CLI output rendered to SVG via charmbracelet/freeze, site screenshots via Playwright against a seeded local stack; auto-commits to `docs/images/`.
+- **Three independent version streams**: CLI semver (`vX.Y.Z`), web/API semver (`web-vX.Y.Z`), suite versions (named integers like `sprint-1`, frozen deliberately — bumping resets a leaderboard).
 
 ---
 

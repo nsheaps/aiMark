@@ -1,26 +1,227 @@
 ---
-const title = "aiMark — like 3DMark, but for AI";
+import Layout from "../layouts/Layout.astro";
+import Term from "../components/Term.astro";
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-    <meta
-      name="description"
-      content="Benchmark AI models across runtimes, providers, and hardware. Run standardized suites locally, submit your score, compare with everyone."
-    />
-  </head>
-  <body>
-    <main>
-      <h1>aiMark</h1>
-      <p><strong>Like 3DMark, but for AI.</strong></p>
-      <p>
-        Run standardized benchmark suites against your AI setup — local models on your own
-        hardware, or hosted APIs — and see how it stacks up on public leaderboards.
+<Layout title="aiMark — like 3DMark, but for AI">
+  <section class="hero">
+    <div class="container">
+      <h1>Like 3DMark, but for AI.</h1>
+      <p class="lede">
+        aiMark runs standardized, versioned <Term id="benchmark">benchmark</Term> suites against
+        your AI setup — local <Term id="model">models</Term> on your own hardware, or
+        <Term id="hosted-api">hosted APIs</Term> — measures speed, quality, cost, and consistency,
+        and publishes a single comparable score to public
+        <Term id="leaderboard">leaderboards</Term>. The reference setup scores ~1000; beat it and
+        you score more.
       </p>
-      <p>Leaderboards, the CLI download, and the glossary land here as the platform builds out.</p>
-    </main>
-  </body>
-</html>
+      <div class="hero-actions">
+        <a class="btn" href="/install/">Install the CLI</a>
+        <a class="btn btn--ghost" href="/leaderboard/sprint/1/">View leaderboards</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="container">
+    <h2>Three steps to a score</h2>
+    <div class="card-grid steps">
+      <div class="card">
+        <p class="step-num" aria-hidden="true">1</p>
+        <h3>Install</h3>
+        <p>
+          One command installs the <code>aimark</code> CLI. <code>aimark detect</code> finds your
+          hardware and installed <Term id="runtime">runtimes</Term> automatically — no
+          configuration files, no accounts.
+        </p>
+      </div>
+      <div class="card">
+        <p class="step-num" aria-hidden="true">2</p>
+        <h3>Run</h3>
+        <p>
+          <code>aimark run sprint-1</code> benchmarks your model with fixed prompts,
+          <Term id="warmup">warmup</Term> passes, and 20 measured
+          <Term id="repetition">repetitions</Term> — watching
+          <Term id="ttft">TTFT</Term> and <Term id="tokens-per-second">tokens per second</Term> live.
+        </p>
+      </div>
+      <div class="card">
+        <p class="step-num" aria-hidden="true">3</p>
+        <h3>Compare</h3>
+        <p>
+          <code>aimark submit</code> publishes your score —
+          <Term id="anonymous-submission">anonymously</Term> if you like — and your run appears on
+          the public board next to every comparable setup.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="board-head">
+      <h2>Sprint 1 — top local scores</h2>
+      <a href="/leaderboard/sprint/1/">Full leaderboard →</a>
+    </div>
+    <p class="muted">
+      Sprint measures interactive “chat feel”: short prompts, single stream, scored on
+      <Term id="ttft">TTFT</Term>, <Term id="decode">decode</Term> speed, and
+      <Term id="p95">p95</Term> latency against a frozen
+      <Term id="reference-baseline">reference baseline</Term>.
+    </p>
+    <div class="table-wrap" id="home-board" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading top scores…</p></div>
+    </div>
+  </section>
+
+  <section class="container">
+    <h2>Get started in one line</h2>
+    <pre><code>curl -fsSL https://aimark.dev/install.sh | sh</code></pre>
+    <p class="muted">
+      Or grab a binary from GitHub Releases — see the <a href="/install/">install guide</a> for
+      every platform and the first-run walkthrough.
+    </p>
+  </section>
+
+  <section class="container">
+    <h2>New to AI benchmarking?</h2>
+    <div class="card-grid">
+      <a class="card" href="/docs/glossary/">
+        <h3>Glossary</h3>
+        <p>
+          Every term on this site — <Term id="token">token</Term>,
+          <Term id="quantization">quantization</Term>, <Term id="vram">VRAM</Term>,
+          <Term id="p99">p99</Term> — defined in plain English. Hover any dotted term anywhere on
+          the site for an instant definition.
+        </p>
+      </a>
+      <a class="card" href="/docs/methodology/">
+        <h3>Methodology</h3>
+        <p>
+          How scores are computed: the 1000-point reference anchor, weighted
+          <Term id="geometric-mean">geometric means</Term>, local vs hosted
+          <Term id="track">tracks</Term>, and what we do about gamed results.
+        </p>
+      </a>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtScore,
+    scoreGrade,
+    setDataStatus,
+    type LeaderboardRow,
+  } from "../scripts/api";
+
+  const container = document.getElementById("home-board");
+
+  async function loadBoard() {
+    if (!container) return;
+    const data = await apiGet<{ rows: LeaderboardRow[] }>(
+      "/v1/leaderboard?suite=sprint&version=1&track=local",
+    );
+    if (!data || !Array.isArray(data.rows)) {
+      setDataStatus(
+        container,
+        "Leaderboard unavailable",
+        "We couldn't reach the API just now — scores will appear here once it's back.",
+      );
+      return;
+    }
+    const rows = data.rows.slice(0, 5);
+    if (rows.length === 0) {
+      setDataStatus(
+        container,
+        "No scores yet",
+        "Be the first: install the CLI, run Sprint 1, and submit your score.",
+      );
+      return;
+    }
+
+    const thead = el(
+      "thead",
+      {},
+      el(
+        "tr",
+        {},
+        el("th", { scope: "col" }, "#"),
+        el("th", { scope: "col" }, "Model"),
+        el("th", { scope: "col" }, "Runtime"),
+        el("th", { scope: "col", class: "num" }, "aiMark Score"),
+      ),
+    );
+    const tbody = el("tbody");
+    rows.forEach((row, i) => {
+      tbody.append(
+        el(
+          "tr",
+          {},
+          el("td", {}, String(i + 1)),
+          el(
+            "td",
+            {},
+            el("a", { href: `/run/?id=${encodeURIComponent(row.run_id)}` }, row.model ?? "—"),
+          ),
+          el("td", {}, row.runtime ?? row.provider ?? "—"),
+          el("td", { class: `num ${scoreGrade(row.composite)}` }, fmtScore(row.composite)),
+        ),
+      );
+    });
+    container.replaceChildren(el("table", {}, thead, tbody));
+  }
+
+  loadBoard();
+</script>
+
+<style>
+  .hero {
+    padding: 4.5rem 0 3rem;
+    border-bottom: 1px solid var(--border);
+    background: radial-gradient(
+      ellipse 80% 60% at 50% -10%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent
+    );
+  }
+
+  .hero h1 {
+    font-size: clamp(2.2rem, 6vw, 3.4rem);
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .steps .card {
+    position: relative;
+  }
+
+  .step-num {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+
+  .board-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .board-head h2 {
+    margin-bottom: 0;
+  }
+
+  section.container {
+    margin-top: 1rem;
+  }
+</style>

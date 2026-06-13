@@ -1,0 +1,258 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Term from "../../components/Term.astro";
+---
+
+<Layout title="Compare runs — aiMark">
+  <div class="container page">
+    <h1>Compare runs</h1>
+    <p class="lede">
+      Put two or more runs side by side: <Term id="sub-score">sub-scores</Term>, every
+      <Term id="metric">metric</Term> with the best value highlighted, and setup parameters with
+      differences called out. Add runs by id:
+      <code>/compare/?ids=run_a,run_b</code>
+    </p>
+    <div class="callout">
+      <strong>Comparing across tracks?</strong> Local and hosted runs measure different things —
+      hosted timing includes the network, local timing includes your hardware. Cross-<Term
+        id="track">track</Term> comparisons are shown when you ask for them, but read them with that
+      caveat in mind.
+    </div>
+    <div id="compare-root" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading comparison…</p></div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtDate,
+    fmtMetric,
+    fmtScore,
+    lowerIsBetter,
+    scoreGrade,
+    setDataStatus,
+    sourceBadge,
+    statusBadge,
+    type RunDetail,
+  } from "../../scripts/api";
+
+  const root = document.getElementById("compare-root") as HTMLElement;
+  const idsParam = new URLSearchParams(location.search).get("ids") ?? "";
+  const ids = idsParam
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  function runLabel(run: RunDetail, index: number): string {
+    const target = run.target ?? {};
+    const model = (target["model"] as string) ?? run.run_id ?? run.id ?? `Run ${index + 1}`;
+    return String(model);
+  }
+
+  function paramValue(run: RunDetail, key: string): string {
+    const target = run.target ?? {};
+    const v = target[key];
+    if (v == null || v === "") return "—";
+    return typeof v === "object" ? JSON.stringify(v) : String(v);
+  }
+
+  async function load() {
+    if (ids.length < 2) {
+      setDataStatus(
+        root,
+        "Pick at least two runs to compare",
+        "Open runs from a leaderboard and add their ids here as ?ids=a,b,c.",
+      );
+      return;
+    }
+    const runs = await apiGet<RunDetail[]>(`/v1/compare?ids=${encodeURIComponent(ids.join(","))}`);
+    if (!runs || !Array.isArray(runs) || runs.length === 0) {
+      setDataStatus(
+        root,
+        "Comparison unavailable",
+        "We couldn't load those runs — they may not exist, or the API may be unreachable.",
+      );
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+
+    // --- header row: one column per run -----------------------------------
+    const headRow = el("tr", {}, el("th", { scope: "col" }, ""));
+    runs.forEach((run, i) => {
+      const id = run.run_id ?? run.id ?? ids[i] ?? "";
+      const th = el(
+        "th",
+        { scope: "col" },
+        el("a", { href: `/run/?id=${encodeURIComponent(id)}` }, runLabel(run, i)),
+      );
+      const badges = el("span", {});
+      const src = sourceBadge(run.source);
+      if (src) badges.append(" ", src);
+      if ((run.status ?? "accepted").toLowerCase() !== "accepted")
+        badges.append(" ", statusBadge(run.status));
+      th.append(badges);
+      headRow.append(th);
+    });
+
+    const tbody = el("tbody");
+    const columnCount = runs.length + 1;
+
+    function sectionRow(label: string) {
+      tbody.append(
+        el(
+          "tr",
+          { class: "section-row" },
+          el("th", { scope: "row", colspan: String(columnCount) }, label),
+        ),
+      );
+    }
+
+    // --- scores ------------------------------------------------------------
+    sectionRow("Scores (higher is better)");
+    const scoreKeys = new Set<string>();
+    for (const run of runs) {
+      for (const k of Object.keys(run.scores ?? {})) if (k !== "composite") scoreKeys.add(k);
+    }
+    const scoreRows: string[] = ["composite", ...scoreKeys];
+    for (const key of scoreRows) {
+      const values = runs.map((r) =>
+        key === "composite" ? ((r.scores?.composite ?? r.composite) as number | undefined) : r.scores?.[key],
+      );
+      const finite = values.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+      const best = finite.length > 0 ? Math.max(...finite) : undefined;
+      const tr = el(
+        "tr",
+        {},
+        el("th", { scope: "row" }, key === "composite" ? "aiMark Score" : key),
+      );
+      for (const v of values) {
+        const isBest = best != null && v === best && finite.length > 1;
+        tr.append(
+          el(
+            "td",
+            { class: `num ${scoreGrade(v)} ${isBest ? "best" : ""}` },
+            fmtScore(v ?? null),
+          ),
+        );
+      }
+      tbody.append(tr);
+    }
+
+    // --- metrics -------------------------------------------------------------
+    const metricKeys: string[] = [];
+    for (const run of runs) {
+      for (const k of Object.keys(run.metrics ?? {})) {
+        if (!metricKeys.includes(k)) metricKeys.push(k);
+      }
+    }
+    if (metricKeys.length > 0) {
+      sectionRow("Metrics (best value highlighted)");
+      for (const key of metricKeys) {
+        const values = runs.map((r) => r.metrics?.[key]);
+        const finite = values.filter(
+          (v): v is number => typeof v === "number" && Number.isFinite(v),
+        );
+        const best =
+          finite.length > 1
+            ? lowerIsBetter(key)
+              ? Math.min(...finite)
+              : Math.max(...finite)
+            : undefined;
+        const tr = el("tr", {}, el("th", { scope: "row", class: "mono" }, key));
+        for (const v of values) {
+          const isBest = best != null && v === best;
+          tr.append(el("td", { class: `num ${isBest ? "best" : ""}` }, fmtMetric(key, v)));
+        }
+        tbody.append(tr);
+      }
+    }
+
+    // --- parameters (highlight differing rows) -----------------------------
+    const paramKeys: string[] = [];
+    for (const run of runs) {
+      for (const k of Object.keys(run.target ?? {})) {
+        if (!paramKeys.includes(k)) paramKeys.push(k);
+      }
+    }
+    sectionRow("Setup (differences highlighted)");
+    const metaRows: [string, (r: RunDetail) => string][] = [
+      ...paramKeys.map(
+        (k): [string, (r: RunDetail) => string] => [k.replace(/_/g, " "), (r) => paramValue(r, k)],
+      ),
+      [
+        "hardware",
+        (r) => {
+          const hw = r.environment?.hardware_profile;
+          if (!hw) return "—";
+          const parts = ["gpu", "cpu", "ram_gb", "os"]
+            .map((k) => hw[k])
+            .filter((v) => v != null && v !== "");
+          return parts.length > 0 ? parts.join(" · ") : JSON.stringify(hw);
+        },
+      ],
+      ["submitted", (r) => fmtDate(r.created_at)],
+    ];
+    for (const [label, getter] of metaRows) {
+      const values = runs.map(getter);
+      const differs = new Set(values).size > 1;
+      const tr = el(
+        "tr",
+        { class: differs ? "differs" : "" },
+        el("th", { scope: "row" }, label),
+      );
+      for (const v of values) tr.append(el("td", {}, v));
+      tbody.append(tr);
+    }
+
+    frag.append(
+      el("div", { class: "table-wrap" }, el("table", {}, el("thead", {}, headRow), tbody)),
+    );
+    root.replaceChildren(frag);
+  }
+
+  load();
+</script>
+
+<style>
+  #compare-root :global(th[scope="row"]) {
+    background: transparent;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  #compare-root :global(.section-row th) {
+    background: var(--bg-raised);
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-top: 0.8rem;
+  }
+
+  #compare-root :global(td.best) {
+    font-weight: 700;
+    box-shadow: inset 2px 0 0 var(--good);
+    background: color-mix(in srgb, var(--good) 8%, transparent);
+  }
+
+  #compare-root :global(tr.differs td) {
+    background: color-mix(in srgb, var(--warn) 7%, transparent);
+  }
+
+  #compare-root :global(tr.differs th) {
+    color: var(--warn);
+  }
+
+  #compare-root :global(td) {
+    white-space: normal;
+    word-break: break-word;
+  }
+</style>

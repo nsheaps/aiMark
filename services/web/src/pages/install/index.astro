@@ -1,0 +1,144 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Term from "../../components/Term.astro";
+
+const platforms = [
+  { os: "macOS", arch: "Apple Silicon (arm64)", asset: "aimark_darwin_arm64.tar.gz" },
+  { os: "macOS", arch: "Intel (amd64)", asset: "aimark_darwin_amd64.tar.gz" },
+  { os: "Linux", arch: "x86-64 (amd64)", asset: "aimark_linux_amd64.tar.gz" },
+  { os: "Linux", arch: "ARM (arm64)", asset: "aimark_linux_arm64.tar.gz" },
+  { os: "Windows", arch: "x86-64 (amd64)", asset: "aimark_windows_amd64.zip" },
+  { os: "Windows", arch: "ARM (arm64)", asset: "aimark_windows_arm64.zip" },
+];
+const releasesUrl = "https://github.com/nsheaps/aiMark/releases/latest";
+---
+
+<Layout
+  title="Install — aiMark"
+  description="Install the aimark CLI in one command, then benchmark your first model in minutes."
+>
+  <div class="container container--narrow page">
+    <h1>Install aiMark</h1>
+    <p class="lede">
+      One small <Term id="inference">CLI</Term>, no account needed. Install it, point it at a model,
+      and you'll have a submitted score in a few minutes.
+    </p>
+
+    <h2 id="curl">Option 1 — one-line install (macOS &amp; Linux)</h2>
+    <pre><code>curl -fsSL https://aimark.dev/install.sh | sh</code></pre>
+    <p class="muted">
+      The script detects your OS and CPU, downloads the right binary from GitHub Releases, verifies
+      its checksum, and puts <code>aimark</code> on your PATH. You can
+      <a href="/install.sh">read the script</a> before running it.
+    </p>
+
+    <h2 id="manual">Option 2 — manual download</h2>
+    <p>
+      Grab a prebuilt binary from <a href={releasesUrl}>GitHub Releases</a>, unpack it, and place
+      it on your PATH:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">OS</th>
+            <th scope="col">Architecture</th>
+            <th scope="col">Asset</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            platforms.map((p) => (
+              <tr>
+                <td>{p.os}</td>
+                <td>{p.arch}</td>
+                <td>
+                  <a href={releasesUrl} class="mono">
+                    {p.asset}
+                  </a>
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Checksums (<code>checksums.txt</code>) are published with every release.</p>
+
+    <h2 id="brew">Option 3 — Homebrew</h2>
+    <p>
+      <span class="badge badge--info">coming soon</span> A Homebrew formula is on the way:
+      <code>brew install aimark</code>. Until then, use the curl script or a manual download.
+    </p>
+
+    <hr />
+
+    <h2 id="first-run">Your first benchmark</h2>
+    <p>
+      The walkthrough below uses <Term id="ollama">Ollama</Term> and a small local
+      <Term id="model">model</Term> — the easiest starting point. If you don't have Ollama yet,
+      install it from <a href="https://ollama.com">ollama.com</a> and pull a model with
+      <code>ollama pull llama3.1:8b</code>.
+    </p>
+
+    <h3>1. See what you've got</h3>
+    <pre><code>aimark detect</code></pre>
+    <p>
+      Detection discovers your hardware — CPU, RAM, GPU and <Term id="vram">VRAM</Term> (or
+      <Term id="unified-memory">unified memory</Term> on a Mac) — and any installed
+      <Term id="runtime">runtimes</Term>, like Ollama or <Term id="lm-studio">LM Studio</Term>.
+      This becomes your run's <Term id="hardware-profile">hardware profile</Term>. If something
+      can't be detected it degrades to "unknown" — it never blocks a run.
+    </p>
+
+    <h3>2. Run Sprint 1</h3>
+    <pre><code>aimark run sprint-1 --target ollama:llama3.1:8b</code></pre>
+    <p>
+      This runs the Sprint 1 <Term id="suite">suite</Term> — ten short
+      <Term id="prompt">prompts</Term> measuring interactive "chat feel" — against the
+      <Term id="target">target</Term> model. You'll see live
+      <Term id="tokens-per-second">tokens-per-second</Term> and
+      <Term id="ttft">TTFT</Term> readouts while it works through 3
+      <Term id="warmup">warmup</Term> passes and 20 measured
+      <Term id="repetition">repetitions</Term>, then a big score card with your
+      <Term id="composite-score">aiMark Score</Term> and
+      <Term id="sub-score">sub-scores</Term>. Everything is saved to a local
+      <Term id="result-file">result file</Term> — nothing is uploaded yet.
+    </p>
+
+    <h3>3. Submit your score</h3>
+    <pre><code>aimark submit</code></pre>
+    <p>
+      Submission publishes the run to the public <Term id="leaderboard">leaderboard</Term> for its
+      suite, version, and <Term id="track">track</Term>. No account required —
+      <Term id="anonymous-submission">anonymous submissions</Term> get a
+      <Term id="claim-token">claim token</Term> so you can attach the run to a GitHub profile later.
+      The server re-checks the score, runs <Term id="plausibility-check">plausibility checks</Term>,
+      and replies with a public URL for your run.
+    </p>
+
+    <div class="callout">
+      <strong>Benchmarking a hosted API instead?</strong> Use a hosted target like
+      <code>--target anthropic:claude-...</code> with your own
+      <Term id="api-key">API key</Term>. Hosted runs cost real money (suites are sized to roughly
+      $1–2 per run) — <code>aimark run --estimate</code> prints the projected cost before anything
+      is sent. Keys stay on your machine and never enter result files.
+    </div>
+
+    <h2 id="next">Where to next</h2>
+    <div class="card-grid">
+      <a class="card" href="/leaderboard/sprint/1/">
+        <h3>See the boards</h3>
+        <p>Find your row, filter by model, and see how your hardware stacks up.</p>
+      </a>
+      <a class="card" href="/docs/methodology/">
+        <h3>Understand your score</h3>
+        <p>What ~1000 points means, and how sub-scores roll up into the composite.</p>
+      </a>
+      <a class="card" href="/docs/glossary/">
+        <h3>Learn the language</h3>
+        <p>Every term the CLI just threw at you, defined in plain English.</p>
+      </a>
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,90 @@
+---
+// <Term id="ttft">TTFT</Term> — dotted-underline glossary link with a CSS-only
+// tooltip showing the term's short definition (looked up at build time).
+// Throws at build if the id doesn't exist in the glossary, so links can't rot.
+import { getTerm } from "../data/glossary";
+
+interface Props {
+  id: string;
+}
+
+const { id } = Astro.props;
+const entry = getTerm(id);
+---
+
+<a class="term" href={`/docs/glossary/#${entry.id}`}>
+  <slot />
+  <span class="term-tip" role="tooltip">
+    <strong>{entry.term}.</strong>
+    {entry.short_def}
+  </span>
+</a>
+
+<style>
+  .term {
+    position: relative;
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent);
+    cursor: help;
+  }
+
+  .term:hover {
+    text-decoration: none;
+    border-bottom-style: solid;
+  }
+
+  .term-tip {
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 20rem;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 400;
+    font-style: normal;
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1.45;
+    white-space: normal;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+    z-index: 60;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 100ms ease,
+      visibility 100ms ease;
+    pointer-events: none;
+  }
+
+  .term-tip strong {
+    color: var(--accent);
+  }
+
+  .term:hover .term-tip,
+  .term:focus-visible .term-tip {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Keep tooltips on-screen for terms near the left edge on small viewports. */
+  @media (max-width: 480px) {
+    .term-tip {
+      left: 0;
+      transform: none;
+      max-width: 16rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .term-tip {
+      transition: none;
+    }
+  }
+</style>
