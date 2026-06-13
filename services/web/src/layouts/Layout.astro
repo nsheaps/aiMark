@@ -16,10 +16,14 @@ const {
 // assets), so this is empty and all client fetches use relative URLs.
 const apiBase: string = import.meta.env.PUBLIC_AIMARK_API ?? "";
 
+// "Leaderboards" points at the class system boards (the headline product);
+// the old per-suite boards are linked from those pages as advanced mode.
 // "Explore" cluster (Models / Hardware / Params) sits between the boards and
 // the comparison tooling — discovery pages over the same public data.
 const nav = [
-  { href: "/leaderboard/sprint/1/", label: "Leaderboards" },
+  { href: "/leaderboard/systems/mainstream/", label: "Leaderboards" },
+  { href: "/model-fit/", label: "Model Fit" },
+  { href: "/cloud/", label: "Cloud" },
   { href: "/models/", label: "Models" },
   { href: "/hardware/", label: "Hardware" },
   { href: "/explore/params/", label: "Params" },
@@ -30,7 +34,10 @@ const nav = [
 ];
 
 const path = Astro.url.pathname;
-const isActive = (href: string) => path === href || (href !== "/" && path.startsWith(href));
+const isActive = (href: string) =>
+  path === href ||
+  (href !== "/" && path.startsWith(href)) ||
+  (href.startsWith("/leaderboard/systems/") && path.startsWith("/leaderboard/systems/"));
 ---
 
 <!doctype html>
@@ -80,7 +87,10 @@ const isActive = (href: string) => path === href || (href !== "/" && path.starts
         </div>
         <nav aria-label="Footer">
           <ul>
-            <li><a href="/leaderboard/sprint/1/">Leaderboards</a></li>
+            <li><a href="/leaderboard/systems/mainstream/">System leaderboards</a></li>
+            <li><a href="/model-fit/">Model Fit</a></li>
+            <li><a href="/cloud/">Cloud monitor</a></li>
+            <li><a href="/leaderboard/sprint/1/">Per-suite boards (advanced)</a></li>
             <li><a href="/models/">Models</a></li>
             <li><a href="/hardware/">Hardware</a></li>
             <li><a href="/explore/params/">Params</a></li>
@@ -93,8 +103,8 @@ const isActive = (href: string) => path === href || (href !== "/" && path.starts
       </div>
       <div class="container">
         <p class="muted footer-note">
-          Scores are only comparable within the same suite version and track — just like 3DMark
-          generations.
+          System Scores are only comparable within the same benchmark version and capability class
+          — just like 3DMark presets and generations.
         </p>
       </div>
     </footer>

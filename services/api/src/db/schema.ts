@@ -69,6 +69,59 @@ export const artifacts = sqliteTable("artifacts", {
   createdAt: text("created_at").notNull(),
 });
 
+/**
+ * Frozen zero-choice benchmark programs (benchmark-program.v1 manifests).
+ * Mirrors `suites`: the manifest is data, the row is the lookup key.
+ */
+export const programs = sqliteTable(
+  "programs",
+  {
+    id: text("id").notNull(),
+    version: integer("version").notNull(),
+    status: text("status").notNull(),
+    manifestJson: text("manifest_json").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.id, t.version] })],
+);
+
+/**
+ * One row per benchmark.v1 envelope — a whole-system result tying together
+ * the cell runs (run.v1 rows sharing bench_id). Mirrors `runs` deliberately:
+ * same claim flow, same dedup, same hidden/flag semantics.
+ */
+export const benchmarks = sqliteTable("benchmarks", {
+  benchId: text("bench_id").primaryKey(),
+  programId: text("program_id").notNull(),
+  programVersion: integer("program_version").notNull(),
+  class: text("class").notNull(),
+  source: text("source").notNull(),
+  /** accepted | flagged */
+  status: text("status").notNull(),
+  flagReason: text("flag_reason"),
+  payloadSha256: text("payload_sha256").notNull().unique(),
+  /** Timestamp the CLI recorded (from the envelope). */
+  createdAt: text("created_at").notNull(),
+  /** Timestamp the API accepted the submission. */
+  submittedAt: text("submitted_at").notNull(),
+  ipHash: text("ip_hash").notNull(),
+  claimTokenHash: text("claim_token_hash").notNull(),
+  /** 0 = visible, 1 = hidden via the claim flow. */
+  hidden: integer("hidden").notNull().default(0),
+  hardwareProfileId: text("hardware_profile_id"),
+  envelopeJson: text("envelope_json").notNull(),
+});
+
+/** Server-recomputed System Score sub-scores + composite per benchmark. */
+export const benchmarkScores = sqliteTable(
+  "benchmark_scores",
+  {
+    benchId: text("bench_id").notNull(),
+    name: text("name").notNull(),
+    value: real("value").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.benchId, t.name] })],
+);
+
 export const hardwareProfiles = sqliteTable("hardware_profiles", {
   id: text("id").primaryKey(),
   profileJson: text("profile_json").notNull(),

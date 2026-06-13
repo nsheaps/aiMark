@@ -99,6 +99,122 @@ export interface ParamImpactGroup {
   median_composite: number | null;
 }
 
+// ------------------------------------------------- zero-choice benchmark shapes
+
+/** The four bench-1 capability classes, in size order. */
+export const BENCH_CLASSES = ["compact", "mainstream", "performance", "ultra"] as const;
+export type BenchClass = (typeof BENCH_CLASSES)[number];
+
+export function classTitle(cls: string): string {
+  return cls.charAt(0).toUpperCase() + cls.slice(1);
+}
+
+export interface SystemsHardware {
+  cpu_model: string | null;
+  gpu: string | null;
+  gpu_vram_gb: number | null;
+  ram_gb: number | null;
+  unified_memory: boolean | null;
+}
+
+export interface SystemsRow {
+  bench_id: string;
+  class: string;
+  hardware: SystemsHardware;
+  hardware_profile_id?: string | null;
+  scores: Record<string, number | undefined>;
+  composite: number;
+  source?: string;
+  status?: string;
+  created_at: string;
+}
+
+export interface BenchCell {
+  cell_id: string;
+  run_id: string;
+  role: string;
+  suite?: { id: string; version: number } | null;
+  model?: string | null;
+  status?: string | null;
+  composite: number | null;
+}
+
+export interface BenchDetail {
+  bench_id: string;
+  program: { id: string; version: number };
+  class: string;
+  classification?: {
+    accel_mem_gb?: number;
+    cpu_only?: boolean;
+    unified_memory?: boolean;
+    detail?: string;
+  } | null;
+  source?: string;
+  status?: string;
+  flag_reason?: string | null;
+  created_at?: string;
+  cli?: { version?: string } | null;
+  hardware_profile?: Record<string, unknown> | null;
+  scores?: Record<string, number | undefined>;
+  composite?: number | null;
+  cells?: BenchCell[];
+}
+
+export interface ModelFitRow {
+  model: string;
+  quantization: string | null;
+  cohort: string;
+  cohort_kind: "gpu" | "cpu";
+  n: number;
+  decode_tps_median: number;
+  ttft_ms_p50_median: number | null;
+  usability: "instant" | "usable" | "painful";
+}
+
+export interface MonitorPoint {
+  date: string;
+  n: number;
+  decode_tps_median: number | null;
+  ttft_ms_p50_median: number | null;
+}
+
+export interface MonitorSeries {
+  provider: string;
+  model: string;
+  points: MonitorPoint[];
+}
+
+/** Hardware one-liner for a systems board row: GPU when present, else CPU + RAM. */
+export function fmtHardware(hw: SystemsHardware | null | undefined): string {
+  if (!hw) return "Unknown hardware";
+  const parts: string[] = [];
+  if (hw.gpu) {
+    parts.push(hw.gpu + (hw.gpu_vram_gb ? ` (${hw.gpu_vram_gb} GB)` : ""));
+    if (hw.cpu_model) parts.push(hw.cpu_model);
+  } else if (hw.cpu_model) {
+    parts.push(hw.cpu_model);
+  }
+  if (hw.ram_gb) parts.push(`${hw.ram_gb} GB RAM${hw.unified_memory ? " (unified)" : ""}`);
+  return parts.length > 0 ? parts.join(" · ") : "Unknown hardware";
+}
+
+/** Colored usability badge for the model-fit matrix. */
+export function usabilityBadgeEl(usability: string): HTMLElement {
+  const cls =
+    usability === "instant"
+      ? "badge badge--ok"
+      : usability === "usable"
+        ? "badge badge--warn"
+        : "badge badge--bad";
+  const label =
+    usability === "instant"
+      ? "feels instant"
+      : usability === "usable"
+        ? "usable"
+        : "painfully slow";
+  return el("span", { class: cls }, label);
+}
+
 // ---------------------------------------------------------------- formatting
 
 export function fmtScore(value: number | null | undefined): string {

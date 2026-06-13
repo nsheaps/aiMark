@@ -5,6 +5,8 @@ import { validateRunV1, type AimarkRunV1, type AimarkSuiteManifestV1 } from "@ai
 import { runs, scores, suites, hardwareProfiles, artifacts } from "./db/schema";
 import { canonicalize, randomHex, sha256Hex, sha256HexBytes } from "./canonical";
 import { computeScores, hashIp, implausibleMetrics, payloadHash, verifyHmac } from "./pipeline";
+import { clientIp, median, parseJsonRecord } from "./util";
+import { registerBenchmarkRoutes } from "./benchmarks";
 import {
   DEFAULT_OUTLIER_MIN_COHORT,
   DEFAULT_OUTLIER_SIGMA,
@@ -20,25 +22,6 @@ import {
  */
 
 type RunRow = typeof runs.$inferSelect;
-
-function median(values: number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  const lower = sorted[mid - 1];
-  const upper = sorted[mid];
-  if (upper === undefined) return null;
-  return sorted.length % 2 === 0 && lower !== undefined ? (lower + upper) / 2 : upper;
-}
-
-function parseJsonRecord(text: string | null): Record<string, unknown> | null {
-  if (text === null) return null;
-  try {
-    return JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 function scoresToMap(rows: { name: string; value: number }[]): Record<string, number> {
   const map: Record<string, number> = {};
@@ -81,17 +64,6 @@ async function fetchScores(db: Database, runIds: string[]) {
     .select({ runId: scores.runId, name: scores.name, value: scores.value })
     .from(scores)
     .where(inArray(scores.runId, runIds));
-}
-
-function clientIp(headers: Headers): string {
-  const cf = headers.get("cf-connecting-ip");
-  if (cf) return cf.trim();
-  const xff = headers.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return "local";
 }
 
 const NOT_IMPLEMENTED_NOTE =
@@ -733,6 +705,11 @@ export function createApp(deps: Deps) {
       },
     });
   });
+
+  // ------------------------------------------- zero-choice benchmark routes
+  // POST/GET/PATCH /v1/benchmarks, /v1/leaderboard/systems, /v1/model-fit,
+  // /v1/monitor/series — see src/benchmarks.ts.
+  registerBenchmarkRoutes(app, deps, now);
 
   // -------------------------------------------------------------- Phase 2 stubs
   app.get("/v1/me", (c) => c.json({ error: "not_implemented", note: NOT_IMPLEMENTED_NOTE }, 501));

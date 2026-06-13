@@ -1,0 +1,276 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import Term from "../../../components/Term.astro";
+
+export function getStaticPaths() {
+  return ["compact", "mainstream", "performance", "ultra"].map((cls) => ({
+    params: { class: cls },
+  }));
+}
+
+const { class: cls } = Astro.params;
+const title = cls!.charAt(0).toUpperCase() + cls!.slice(1);
+
+const classBlurbs: Record<string, string> = {
+  compact: "CPU-only machines and GPUs under 6 GB — laptops, minis, and modest desktops.",
+  mainstream: "6–16 GB of usable accelerator memory — most gaming PCs and Apple Silicon Macs.",
+  performance: "16–24 GB of usable accelerator memory — enthusiast GPUs and high-memory Macs.",
+  ultra: "24 GB+ of usable accelerator memory — workstation rigs and maxed-out Apple Silicon.",
+};
+
+const allClasses = ["compact", "mainstream", "performance", "ultra"];
+---
+
+<Layout
+  title={`${title} systems leaderboard — aiMark`}
+  description={`Real machines in the ${title} capability class ranked by aiMark System Score.`}
+>
+  <div class="container page">
+    <h1>{title} systems</h1>
+    <p class="lede">
+      Whole machines in the <strong>{title}</strong>
+      <Term id="capability-class">capability class</Term>, ranked by
+      <Term id="system-score">System Score</Term>. {classBlurbs[cls!]}
+    </p>
+
+    <nav class="class-nav" aria-label="Capability classes">
+      {
+        allClasses.map((c) => (
+          <a
+            href={`/leaderboard/systems/${c}/`}
+            class={c === cls ? "class-pill class-pill--active" : "class-pill"}
+            aria-current={c === cls ? "page" : undefined}
+          >
+            {c.charAt(0).toUpperCase() + c.slice(1)}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="callout">
+      <strong>Classes are not comparable.</strong> Every machine in a class runs the identical
+      program — same <Term id="test-asset">test assets</Term>, same pinned runtime, same cells —
+      so {title} scores compare fairly with each other. Different classes run different test
+      models, so scores never compare across classes — like 3DMark presets, where a laptop's
+      Night Raid score says nothing about a rig's Time Spy score. Each cell of the program is a
+      normal run; rows drill down to per-cell detail.
+    </div>
+
+    <form class="board-controls" aria-label="Leaderboard filters">
+      <label class="control-check">
+        <input type="checkbox" id="show-ci" /> Show <Term id="ci-run">CI runs</Term>
+      </label>
+      <label class="control-check">
+        <input type="checkbox" id="show-flagged" /> Show <Term id="flagged-run">flagged</Term>
+      </label>
+      <label class="control-filter">
+        <span>Filter by hardware</span>
+        <input type="search" id="hw-filter" placeholder="e.g. 4090 or M3" autocomplete="off" />
+      </label>
+    </form>
+
+    <div class="table-wrap" id="board" aria-live="polite" data-class={cls}>
+      <div class="data-status" role="status"><p>Loading systems…</p></div>
+    </div>
+
+    <p class="muted board-foot">
+      Rows link to the full benchmark detail — classification, hardware profile, and every test
+      cell. Flagged and CI benchmarks are excluded from the default view; toggles above reveal
+      them. Want to slice by suite, model, or parameters instead? The
+      <a href="/leaderboard/sprint/1/">advanced per-suite boards</a> rank individual runs.
+    </p>
+  </div>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtDate,
+    fmtHardware,
+    fmtScore,
+    scoreGrade,
+    setDataStatus,
+    sourceBadge,
+    statusBadge,
+    type SystemsRow,
+  } from "../../../scripts/api";
+
+  const board = document.getElementById("board") as HTMLElement;
+  const cls = board.dataset.class ?? "mainstream";
+  const ciBox = document.getElementById("show-ci") as HTMLInputElement;
+  const flaggedBox = document.getElementById("show-flagged") as HTMLInputElement;
+  const filterInput = document.getElementById("hw-filter") as HTMLInputElement;
+  const form = document.querySelector<HTMLFormElement>(".board-controls");
+
+  const SUB_SCORES = ["performance", "consistency"];
+  let rows: SystemsRow[] = [];
+  let fetchFailed = false;
+
+  function hardwareText(row: SystemsRow): string {
+    return fmtHardware(row.hardware).toLowerCase();
+  }
+
+  function render() {
+    if (fetchFailed) {
+      setDataStatus(
+        board,
+        "API unreachable",
+        "We couldn't load the leaderboard — check your connection or try again shortly.",
+      );
+      return;
+    }
+    const needle = filterInput.value.trim().toLowerCase();
+    const visible = rows.filter((r) => !needle || hardwareText(r).includes(needle));
+    if (visible.length === 0) {
+      setDataStatus(
+        board,
+        rows.length === 0 ? "No systems on this board yet" : "No systems match that filter",
+        rows.length === 0
+          ? "Run `aimark` and submit — your machine claims the first row."
+          : "Try a shorter search, or clear the filter.",
+      );
+      return;
+    }
+
+    const headRow = el(
+      "tr",
+      {},
+      el("th", { scope: "col" }, "#"),
+      el("th", { scope: "col" }, "System"),
+      ...SUB_SCORES.map((s) =>
+        el("th", { scope: "col", class: "num" }, s.charAt(0).toUpperCase() + s.slice(1)),
+      ),
+      el("th", { scope: "col", class: "num" }, "System Score"),
+      el("th", { scope: "col" }, "Date"),
+    );
+    const tbody = el("tbody");
+    visible.forEach((row, i) => {
+      const badges = el("span", { class: "row-badges" });
+      const src = sourceBadge(row.source);
+      if (src) badges.append(" ", src);
+      if ((row.status ?? "accepted").toLowerCase() !== "accepted") {
+        badges.append(" ", statusBadge(row.status));
+      }
+      const tr = el(
+        "tr",
+        {},
+        el("td", {}, String(i + 1)),
+        el(
+          "td",
+          {},
+          el(
+            "a",
+            { href: `/bench/?id=${encodeURIComponent(row.bench_id)}` },
+            fmtHardware(row.hardware),
+          ),
+          badges,
+        ),
+      );
+      for (const s of SUB_SCORES) {
+        const v = row.scores?.[s];
+        tr.append(el("td", { class: `num ${scoreGrade(v)}` }, fmtScore(v)));
+      }
+      tr.append(
+        el("td", { class: `num ${scoreGrade(row.composite)}` }, fmtScore(row.composite)),
+        el("td", {}, fmtDate(row.created_at)),
+      );
+      tbody.append(tr);
+    });
+    board.replaceChildren(el("table", {}, el("thead", {}, headRow), tbody));
+  }
+
+  async function load() {
+    setDataStatus(board, "Loading systems…");
+    const params = new URLSearchParams({ class: cls });
+    if (ciBox.checked) params.set("include_ci", "true");
+    if (flaggedBox.checked) params.set("include_flagged", "true");
+    const data = await apiGet<{ rows: SystemsRow[] }>(`/v1/leaderboard/systems?${params}`);
+    fetchFailed = !data || !Array.isArray(data.rows);
+    rows = fetchFailed ? [] : data!.rows;
+    render();
+  }
+
+  form?.addEventListener("change", (e) => {
+    if (e.target === filterInput) return;
+    load();
+  });
+  filterInput.addEventListener("input", () => render());
+  form?.addEventListener("submit", (e) => e.preventDefault());
+
+  load();
+</script>
+
+<style>
+  .class-nav {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 1.25rem 0;
+  }
+
+  .class-pill {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+
+  .class-pill:hover {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .class-pill--active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .board-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 1.5rem 0 1rem;
+  }
+
+  .control-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.92rem;
+  }
+
+  .control-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.92rem;
+    margin-left: auto;
+  }
+
+  .control-filter span {
+    color: var(--muted);
+  }
+
+  .board-foot {
+    font-size: 0.88rem;
+    margin-top: 1rem;
+  }
+
+  #board :global(.row-badges .badge) {
+    margin-left: 0.45rem;
+  }
+
+  @media (max-width: 720px) {
+    .control-filter {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .control-filter input {
+      flex: 1;
+    }
+  }
+</style>

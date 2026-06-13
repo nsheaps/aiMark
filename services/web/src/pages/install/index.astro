@@ -20,8 +20,9 @@ const releasesUrl = "https://github.com/nsheaps/aiMark/releases/latest";
   <div class="container container--narrow page">
     <h1>Install aiMark</h1>
     <p class="lede">
-      One small <Term id="inference">CLI</Term>, no account needed. Install it, point it at a model,
-      and you'll have a submitted score in a few minutes.
+      One small <Term id="inference">CLI</Term>, no account needed. Install it, run
+      <code>aimark</code>, and your machine has a <Term id="system-score">System Score</Term> —
+      no models to pick, no runtimes to set up.
     </p>
 
     <h2 id="curl">Option 1 — one-line install (macOS &amp; Linux)</h2>
@@ -73,63 +74,63 @@ const releasesUrl = "https://github.com/nsheaps/aiMark/releases/latest";
 
     <hr />
 
-    <h2 id="first-run">Your first benchmark</h2>
+    <h2 id="first-run">Your first benchmark: one word</h2>
+    <pre><code>aimark</code></pre>
     <p>
-      The walkthrough below uses <Term id="ollama">Ollama</Term> and a small local
-      <Term id="model">model</Term> — the easiest starting point. If you don't have Ollama yet,
-      install it from <a href="https://ollama.com">ollama.com</a> and pull a model with
-      <code>ollama pull llama3.1:8b</code>.
+      That's the whole thing. No flags, no model to choose, no runtime to install first. When it
+      runs, <code>aimark</code>:
     </p>
-
-    <h3>1. See what you've got</h3>
-    <pre><code>aimark detect</code></pre>
-    <p>
-      Detection discovers your hardware — CPU, RAM, GPU and <Term id="vram">VRAM</Term> (or
-      <Term id="unified-memory">unified memory</Term> on a Mac) — and any installed
-      <Term id="runtime">runtimes</Term>, like Ollama or <Term id="lm-studio">LM Studio</Term>.
-      This becomes your run's <Term id="hardware-profile">hardware profile</Term>. If something
-      can't be detected it degrades to "unknown" — it never blocks a run.
-    </p>
-
-    <h3>2. Run Sprint 1</h3>
-    <pre><code>aimark run sprint-1 --target ollama:llama3.1:8b</code></pre>
-    <p>
-      This runs the Sprint 1 <Term id="suite">suite</Term> — ten short
-      <Term id="prompt">prompts</Term> measuring interactive "chat feel" — against the
-      <Term id="target">target</Term> model. You'll see live
-      <Term id="tokens-per-second">tokens-per-second</Term> and
-      <Term id="ttft">TTFT</Term> readouts while it works through 3
-      <Term id="warmup">warmup</Term> passes and 20 measured
-      <Term id="repetition">repetitions</Term>, then a big score card with your
-      <Term id="composite-score">aiMark Score</Term> and
-      <Term id="sub-score">sub-scores</Term>. Everything is saved to a local
-      <Term id="result-file">result file</Term> — nothing is uploaded yet.
-    </p>
-
-    <h3>3. Submit your score</h3>
-    <pre><code>aimark submit</code></pre>
-    <p>
-      Submission publishes the run to the public <Term id="leaderboard">leaderboard</Term> for its
-      suite, version, and <Term id="track">track</Term>. No account required —
-      <Term id="anonymous-submission">anonymous submissions</Term> get a
-      <Term id="claim-token">claim token</Term> so you can attach the run to a GitHub profile later.
-      The server re-checks the score, runs <Term id="plausibility-check">plausibility checks</Term>,
-      and replies with a public URL for your run.
+    <ol>
+      <li>
+        <strong>Detects your hardware</strong> — CPU, RAM, GPU and <Term id="vram">VRAM</Term> (or
+        <Term id="unified-memory">unified memory</Term> on a Mac). This becomes your
+        <Term id="hardware-profile">hardware profile</Term>; anything undetectable degrades to
+        "unknown" and never blocks the run.
+      </li>
+      <li>
+        <strong>Assigns your <Term id="capability-class">capability class</Term></strong> —
+        Compact, Mainstream, Performance, or Ultra, based on usable accelerator memory — and tells
+        you why.
+      </li>
+      <li>
+        <strong>Downloads its <Term id="test-asset">test assets</Term></strong> — the pinned
+        llama.cpp build for your platform and your class's pinned test model (roughly 1–19 GB
+        depending on class), checksum-verified and cached for next time.
+      </li>
+      <li>
+        <strong>Runs the fixed program</strong> — chat feel, sustained throughput, and long-context
+        cells on the class model, plus an anchor cell and a
+        <Term id="validity-check">validity check</Term> — with live
+        <Term id="tokens-per-second">tokens-per-second</Term> and <Term id="ttft">TTFT</Term>
+        readouts.
+      </li>
+      <li>
+        <strong>Shows your score card and offers to upload</strong> — your
+        <Term id="system-score">System Score</Term> and class rank. No account required:
+        <Term id="anonymous-submission">anonymous submissions</Term> get a
+        <Term id="claim-token">claim token</Term> so you can manage the result later. The server
+        verifies every cell and recomputes the score before it counts.
+      </li>
+    </ol>
+    <p class="muted">
+      <code>aimark --yes</code> auto-uploads, <code>aimark --no-upload</code> keeps everything
+      local, <code>aimark --json</code> is for scripts.
     </p>
 
     <div class="callout">
-      <strong>Benchmarking a hosted API instead?</strong> Use a hosted target like
-      <code>--target anthropic:claude-...</code> with your own
-      <Term id="api-key">API key</Term>. Hosted runs cost real money (suites are sized to roughly
-      $1–2 per run) — <code>aimark run --estimate</code> prints the projected cost before anything
-      is sent. Keys stay on your machine and never enter result files.
+      <strong>Advanced mode.</strong> The pick-your-own machinery is still there:
+      <code>aimark run sprint-1 --target ollama:llama3.1:8b</code> benchmarks any
+      <Term id="model">model</Term> on any <Term id="runtime">runtime</Term> (or a hosted
+      <Term id="provider">provider</Term> with your own <Term id="api-key">API key</Term>) against
+      the per-suite boards. Advanced runs feed the <a href="/model-fit/">model-fit matrix</a> but
+      never the class system leaderboards.
     </div>
 
     <h2 id="next">Where to next</h2>
     <div class="card-grid">
-      <a class="card" href="/leaderboard/sprint/1/">
+      <a class="card" href="/leaderboard/systems/mainstream/">
         <h3>See the boards</h3>
-        <p>Find your row, filter by model, and see how your hardware stacks up.</p>
+        <p>Find your machine's row in its class and see how your hardware stacks up.</p>
       </a>
       <a class="card" href="/docs/methodology/">
         <h3>Understand your score</h3>

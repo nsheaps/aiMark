@@ -2,7 +2,7 @@ import type { D1Database, KVNamespace, R2Bucket } from "@cloudflare/workers-type
 import { drizzle } from "drizzle-orm/d1";
 import { createApp, type App } from "../src/app";
 import * as schema from "../src/db/schema";
-import { seedSuites } from "../src/db/seed";
+import { seedPrograms, seedSuites } from "../src/db/seed";
 import { DEFAULT_RATE_LIMIT, InMemoryBlobStore, InMemoryRateLimiter } from "../src/deps";
 import { KvRateLimiter } from "../src/ratelimit-kv";
 import { R2BlobStore } from "../src/blobs-r2";
@@ -46,7 +46,7 @@ function init(env: Env): { app: App; seeded: Promise<void> } {
     outlierSigma: env.OUTLIER_SIGMA ? Number(env.OUTLIER_SIGMA) : undefined,
     outlierMinCohort: env.OUTLIER_MIN_COHORT ? Number(env.OUTLIER_MIN_COHORT) : undefined,
   });
-  const seeded = db ? seedSuites(db) : Promise.resolve();
+  const seeded = db ? seedSuites(db).then(() => seedPrograms(db)) : Promise.resolve();
   return { app, seeded };
 }
 

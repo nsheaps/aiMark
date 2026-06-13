@@ -925,6 +925,51 @@ export const glossary: GlossaryEntry[] = [
     category: "benchmarking",
   },
   {
+    id: "capability-class",
+    term: "Capability class",
+    short_def:
+      "The hardware tier aiMark assigns your machine — Compact, Mainstream, Performance, or Ultra — based on usable accelerator memory.",
+    long_def:
+      "When you run `aimark`, the CLI measures your usable accelerator memory (GPU VRAM; Apple Silicon unified memory counts at 70%) and assigns one of four classes. Each class runs its own pinned test model, so every machine gets a workload it can actually handle — like 3DMark choosing Night Raid for laptops and Time Spy Extreme for gaming rigs. Scores are only comparable within a class; CPU-only machines always land in Compact.",
+    category: "benchmarking",
+  },
+  {
+    id: "system-score",
+    term: "System Score",
+    short_def:
+      "Your machine's single headline number from the zero-choice benchmark — the weighted combination of its test program's cell scores.",
+    long_def:
+      "The aiMark System Score is the weighted geometric mean of the score-producing cells in your capability class's fixed test program (Sprint, Marathon, Deep Dive on the class model, plus an anchor cell). The server recomputes it from the verified cell runs — the number on the leaderboard is never just what your machine claimed. It ranks whole systems within a class, the way a 3DMark score ranks PCs.",
+    category: "benchmarking",
+  },
+  {
+    id: "validity-check",
+    term: "Validity check",
+    short_def:
+      "A graded-quality test cell that can flag a benchmark as broken or cheated, but never moves its score.",
+    long_def:
+      "In a hardware benchmark the model is a fixed test asset, so its answer quality is a constant of the class — grading failures mean the run is broken (wrong model, corrupted download, tampering), not that the hardware is slow. The zero-choice program runs Gauntlet as a validity check: results below the class's accuracy floor flag the whole benchmark instead of feeding the System Score.",
+    category: "benchmarking",
+  },
+  {
+    id: "test-asset",
+    term: "Test asset",
+    short_def:
+      "A pinned, checksummed file the benchmark downloads to run — including the models themselves.",
+    long_def:
+      "In zero-choice mode, models are not your choice — they are versioned parts of the benchmark, like 3DMark's scenes. Each program version pins exact model files and a llama.cpp build by URL and sha256; the CLI downloads and verifies them. Changing any test asset would change what scores mean, so changes require a new program version and a fresh leaderboard.",
+    category: "benchmarking",
+  },
+  {
+    id: "monitoring-run",
+    term: "Monitoring run",
+    short_def:
+      "A scheduled probe of a hosted AI API, recorded as reference data rather than a competitive score.",
+    long_def:
+      "aiMark probes hosted APIs on a schedule (a central cron, plus anyone running probe mode with their own keys) and records latency and throughput over time. These runs are marked with monitor=true and shown as a reference series — context for your local score, not a leaderboard. Monitoring is the one place where CI-sourced data is included by design: the probes measure the provider, not the machine sending the request.",
+    category: "benchmarking",
+  },
+  {
     id: "parameter-impact",
     term: "Parameter impact",
     short_def:

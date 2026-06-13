@@ -10,9 +10,107 @@ import Term from "../../../components/Term.astro";
   <div class="container container--narrow page">
     <h1>Methodology</h1>
     <p class="lede">
-      Every aiMark number is designed to be explainable. This page covers how scores are computed,
-      why local and hosted results never share a board, how suite versions work, and what we do —
-      and honestly cannot do — about gamed results.
+      Every aiMark number is designed to be explainable. This page covers how the zero-choice
+      benchmark classifies your machine and scores it, why models are test assets rather than
+      choices, how cloud APIs fit in, and — in the advanced-mode section — how the underlying
+      suite scores are computed and what we do (and honestly cannot do) about gamed results.
+    </p>
+
+    <h2 id="zero-choice">The zero-choice benchmark</h2>
+    <p>
+      Running <code>aimark</code> involves no decisions: the CLI inspects your machine, assigns a
+      <Term id="capability-class">capability class</Term>, downloads the pinned
+      <Term id="test-asset">test assets</Term> for that class, runs the fixed test program, and
+      produces one <Term id="system-score">System Score</Term>. The benchmark measures
+      <strong>your system</strong>, the way 3DMark measures a PC — the model is part of the test,
+      not the thing being tested.
+    </p>
+
+    <h3 id="classes">Capability classes and the classification rule</h3>
+    <p>
+      The classification input is <strong>usable accelerator memory</strong>: the largest GPU's
+      <Term id="vram">VRAM</Term>. Two deliberate wrinkles:
+    </p>
+    <ul>
+      <li>
+        <strong>Apple Silicon <Term id="unified-memory">unified memory</Term> counts at 70%.</strong>
+        Unified memory is shared with the OS and everything else running, so a 32 GB M-series Mac
+        cannot actually dedicate 32 GB to model weights. Counting 70% puts Macs in the class whose
+        test model they can genuinely run well, rather than flattering the spec sheet.
+      </li>
+      <li>
+        <strong>CPU-only machines are always Compact, regardless of RAM.</strong> A 64 GB
+        CPU-only box can <em>hold</em> a 32B model but cannot meaningfully run one — memory
+        bandwidth, not capacity, is the wall. It's the same reason an integrated GPU runs 3DMark
+        Night Raid and not Time Spy Extreme.
+      </li>
+    </ul>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Class</th>
+            <th scope="col">Usable accelerator memory</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Compact</th><td>CPU-only, or under 6 GB</td></tr>
+          <tr><th scope="row">Mainstream</th><td>6–16 GB</td></tr>
+          <tr><th scope="row">Performance</th><td>16–24 GB</td></tr>
+          <tr><th scope="row">Ultra</th><td>24 GB and up</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Each class runs its own pinned test model (one model family across classes, for a clean
+      scaling story), and every class <em>also</em> runs the Compact model as a cross-class anchor
+      cell — so any two machines share at least one identical workload. System Scores are
+      comparable only within a (benchmark version, class) pair; the class leaderboards rank
+      <strong>systems</strong>, never models.
+    </p>
+
+    <h3 id="test-assets">Models are test assets</h3>
+    <p>
+      In zero-choice mode, the model is part of the benchmark the way a rendering scene is part of
+      3DMark. The program manifest pins exact model files and a specific llama.cpp build by URL
+      and sha256; the CLI downloads, verifies, and runs them — your installed runtimes and models
+      are not involved. Changing any test asset would silently change what scores mean, so any
+      change produces a new program version and a fresh leaderboard, exactly like
+      <a href="#versioning">suite versioning</a> below.
+    </p>
+
+    <h3 id="validity">Validity checks: graded tasks as tamper detection</h3>
+    <p>
+      The program includes a graded-quality cell (Gauntlet), but it is a
+      <Term id="validity-check">validity check</Term>, not a score input. In a hardware benchmark
+      the model's answer quality is a <strong>constant of the class</strong> — every Mainstream
+      machine runs the same model on the same tasks, so accuracy should land in the same band
+      everywhere. A result far below that band doesn't mean "slow hardware"; it means the run is
+      broken or cheated (wrong model, corrupted weights, a doctored client). Such results flag the
+      whole benchmark off the default boards instead of moving its score.
+    </p>
+
+    <h3 id="cloud-monitoring">Cloud APIs are monitoring, not competition</h3>
+    <p>
+      Hosted APIs don't race local machines on aiMark. A scheduled monitor probes providers and
+      records latency and throughput over time as a <Term id="monitoring-run">reference series</Term>
+      — shown on the <a href="/cloud/">cloud monitor</a> page so you can put a local score in
+      context. Monitoring probes typically run on CI infrastructure and are
+      <em>included</em> there by design (the one place CI-sourced data is the point: the probe
+      measures the provider, not the machine sending the request). They are excluded from every
+      leaderboard.
+    </p>
+
+    <hr />
+
+    <h2 id="advanced">Advanced mode: pick-your-own suites</h2>
+    <p>
+      Everything below describes the underlying suite machinery — which both powers the
+      zero-choice program's cells <em>and</em> remains directly usable as advanced mode
+      (<code>aimark run &lt;suite&gt; --target …</code>) for benchmarking your own model/runtime
+      combinations. Advanced-mode runs appear on the <a href="/leaderboard/sprint/1/">per-suite
+      boards</a> and feed the <a href="/model-fit/">model-fit matrix</a>, but never the class
+      system leaderboards.
     </p>
 
     <h2 id="score-model">The score model</h2>
@@ -195,7 +293,9 @@ import Term from "../../../components/Term.astro";
       These are labelled <Term id="ci-run">source=ci</Term> and
       <strong>excluded from default leaderboards</strong>: shared CI machines are slow, noisy, and
       say nothing about real hardware. They are not deleted — every board has a "show CI runs"
-      toggle, and CI rows carry a visible badge wherever they appear.
+      toggle, and CI rows carry a visible badge wherever they appear. The one deliberate exception
+      is the <a href="/cloud/">cloud monitor</a>, where CI-sourced probes are included by design —
+      see <a href="#cloud-monitoring">cloud APIs are monitoring</a>.
     </p>
 
     <h2 id="protocol">Protocol details</h2>
