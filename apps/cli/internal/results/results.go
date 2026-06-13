@@ -6,6 +6,11 @@
 //	<ulid>.aimark.json    — run.v1 envelope
 //	<ulid>.samples.json   — samples.v1 artifact
 //	<ulid>.submitted.json — API response after a successful submit
+//
+// Zero-choice benchmarks add (keyed by bench ULID):
+//
+//	<ulid>.bench.json     — benchmark.v1 envelope
+//	<ulid>.submitted.json — API response after a successful benchmark submit
 package results
 
 import (
@@ -131,9 +136,11 @@ func (s *Store) LoadSamples(id string) (schema.SamplesV1Json, error) {
 	return samples, nil
 }
 
-// SubmitReceipt is the persisted API response for a submitted run.
+// SubmitReceipt is the persisted API response for a submitted run or
+// benchmark (RunID for runs, BenchID for benchmarks).
 type SubmitReceipt struct {
-	RunID      string `json:"run_id"`
+	RunID      string `json:"run_id,omitempty"`
+	BenchID    string `json:"bench_id,omitempty"`
 	ClaimToken string `json:"claim_token,omitempty"`
 	PublicURL  string `json:"public_url,omitempty"`
 }
@@ -187,6 +194,65 @@ func (s *Store) List() ([]string, error) {
 // Pending returns ids of runs that have not been submitted yet.
 func (s *Store) Pending() ([]string, error) {
 	ids, err := s.List()
+	if err != nil {
+		return nil, err
+	}
+	var pending []string
+	for _, id := range ids {
+		if !s.IsSubmitted(id) {
+			pending = append(pending, id)
+		}
+	}
+	return pending, nil
+}
+
+func (s *Store) benchPath(id string) string {
+	return filepath.Join(s.Dir, id+".bench.json")
+}
+
+// SaveBench writes one benchmark.v1 envelope.
+func (s *Store) SaveBench(env schema.BenchmarkV1Json) error {
+	if !ULIDPattern.MatchString(env.BenchId) {
+		return fmt.Errorf("results: invalid bench id %q", env.BenchId)
+	}
+	return writeJSON(s.benchPath(env.BenchId), env)
+}
+
+// LoadBench reads one benchmark envelope by id.
+func (s *Store) LoadBench(id string) (schema.BenchmarkV1Json, error) {
+	var env schema.BenchmarkV1Json
+	raw, err := os.ReadFile(s.benchPath(id))
+	if err != nil {
+		return env, fmt.Errorf("results: load bench %s: %w", id, err)
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return env, fmt.Errorf("results: parse bench %s: %w", id, err)
+	}
+	return env, nil
+}
+
+// ListBench returns all benchmark ids in the store, oldest first.
+func (s *Store) ListBench() ([]string, error) {
+	entries, err := os.ReadDir(s.Dir)
+	if err != nil {
+		return nil, fmt.Errorf("results: list %s: %w", s.Dir, err)
+	}
+	var ids []string
+	for _, e := range entries {
+		name := e.Name()
+		id, ok := strings.CutSuffix(name, ".bench.json")
+		if !ok || !ULIDPattern.MatchString(id) {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids, nil
+}
+
+// PendingBench returns ids of benchmarks that have not been submitted yet.
+func (s *Store) PendingBench() ([]string, error) {
+	ids, err := s.ListBench()
 	if err != nil {
 		return nil, err
 	}

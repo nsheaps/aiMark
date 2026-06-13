@@ -10,10 +10,14 @@ import (
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "aimark",
-		Short: "Benchmark AI models across runtimes, providers, and hardware",
-		Long: `aimark runs standardized, versioned benchmark suites against AI models —
-local runtimes (Ollama, llama.cpp, vLLM, LM Studio) and hosted APIs — and
-produces comparable scores you can submit to the public aiMark leaderboards.`,
+		Short: "The AI system benchmark — one command, one score",
+		Long: `aimark is the AI system benchmark: run it with no arguments and it detects
+your hardware, assigns a capability class, downloads the pinned runtime and
+model assets, runs the fixed test program, and prints one aiMark System
+Score you can upload to the public class leaderboards.
+
+Advanced mode (off the class leaderboards): ` + "`aimark run <suite>`" + ` benchmarks
+any model on any runtime or hosted API with your own parameters.`,
 		SilenceUsage: true,
 	}
 
@@ -22,7 +26,9 @@ produces comparable scores you can submit to the public aiMark leaderboards.`,
 		newDetectCmd(),
 		newDoctorCmd(),
 		newSuitesCmd(),
+		newBenchCmd(),
 		newRunCmd(),
+		newMonitorCmd(),
 		newResultsCmd(),
 		newSubmitCmd(),
 	)

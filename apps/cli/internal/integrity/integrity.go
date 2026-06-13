@@ -59,28 +59,90 @@ func CanonicalJSON(v any) ([]byte, error) {
 	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
 }
 
+// block is one computed integrity block, shared by every signable envelope.
+type block struct {
+	PayloadSha256 string
+	Hmac          string
+	KeyGen        string
+	Nonce         string
+}
+
+// computeBlock canonicalizes v (which must NOT contain an integrity block)
+// and computes the payload hash, HMAC, and a fresh nonce.
+func computeBlock(v any) (block, error) {
+	payload, err := CanonicalJSON(v)
+	if err != nil {
+		return block{}, err
+	}
+	sum := sha256.Sum256(payload)
+	mac := hmac.New(sha256.New, []byte(signingKey))
+	mac.Write(payload)
+	return block{
+		PayloadSha256: hex.EncodeToString(sum[:]),
+		Hmac:          hex.EncodeToString(mac.Sum(nil)),
+		KeyGen:        keyGen,
+		Nonce:         ulid.Make().String(),
+	}, nil
+}
+
 // Sign computes the integrity block over the envelope (minus any existing
 // integrity block) and attaches it.
 func Sign(env *schema.RunV1Json) error {
 	env.Integrity = nil
-	payload, err := CanonicalJSON(env)
+	b, err := computeBlock(env)
 	if err != nil {
 		return err
 	}
-
-	sum := sha256.Sum256(payload)
-	mac := hmac.New(sha256.New, []byte(signingKey))
-	mac.Write(payload)
-
-	hmacHex := hex.EncodeToString(mac.Sum(nil))
-	gen := keyGen
 	env.Integrity = &schema.RunV1JsonIntegrity{
-		PayloadSha256: hex.EncodeToString(sum[:]),
-		Hmac:          &hmacHex,
-		KeyGen:        &gen,
-		Nonce:         ulid.Make().String(),
+		PayloadSha256: b.PayloadSha256,
+		Hmac:          &b.Hmac,
+		KeyGen:        &b.KeyGen,
+		Nonce:         b.Nonce,
 	}
 	return nil
+}
+
+// SignBenchmark computes the integrity block over the benchmark envelope
+// (minus any existing integrity block) and attaches it.
+func SignBenchmark(env *schema.BenchmarkV1Json) error {
+	env.Integrity = nil
+	b, err := computeBlock(env)
+	if err != nil {
+		return err
+	}
+	env.Integrity = &schema.BenchmarkV1JsonIntegrity{
+		PayloadSha256: b.PayloadSha256,
+		Hmac:          &b.Hmac,
+		KeyGen:        &b.KeyGen,
+		Nonce:         b.Nonce,
+	}
+	return nil
+}
+
+// VerifyBenchmark recomputes the benchmark integrity block and reports
+// whether it matches.
+func VerifyBenchmark(env schema.BenchmarkV1Json) (bool, error) {
+	blk := env.Integrity
+	if blk == nil {
+		return false, fmt.Errorf("integrity: benchmark envelope has no integrity block")
+	}
+	env.Integrity = nil
+	payload, err := CanonicalJSON(&env)
+	if err != nil {
+		return false, err
+	}
+	sum := sha256.Sum256(payload)
+	if hex.EncodeToString(sum[:]) != blk.PayloadSha256 {
+		return false, nil
+	}
+	if blk.Hmac != nil {
+		mac := hmac.New(sha256.New, []byte(signingKey))
+		mac.Write(payload)
+		if !hmac.Equal([]byte(hex.EncodeToString(mac.Sum(nil))), []byte(*blk.Hmac)) {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // Verify recomputes the integrity block and reports whether it matches.

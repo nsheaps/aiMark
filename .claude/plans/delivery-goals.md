@@ -126,9 +126,9 @@ budgets; central cron + optional user-run cloud monitoring; advanced mode kept.
 
 - [x] GB1 Contracts: benchmark-program.v1 + benchmark.v1 schemas, bench_id on run.v1, codegen both ways
 - [x] GB2 Pinned assets: 4 Qwen2.5 GGUFs (sha256 from HF API) + llama.cpp b9616 builds (sha256 from GitHub digests)
-- [ ] GB3 CLI: classify → assets → managed llama-server → fixed program → System Score → upload; `aimark` = bench; mock-runtime path for CI; `aimark monitor` probe mode
-- [ ] GB4 API: programs/benchmarks tables, POST /v1/benchmarks (cell verification + recompute), /v1/leaderboard/systems, /v1/model-fit, /v1/monitor/series
-- [ ] GB5 Web: home pivot, class leaderboards, /bench detail, /model-fit, /cloud, methodology update
-- [ ] GB6 CI: e2e-bench (mock, every PR) + e2e-bench-real (nightly, real assets) + cloud-monitor.yaml cron [B keys]
+- [x] GB3 CLI: classify → assets → managed llama-server → fixed program → System Score → upload; `aimark` = bench; mock-runtime path for CI; `aimark monitor` probe mode
+- [x] GB4 API: programs/benchmarks tables, POST /v1/benchmarks (cell verification + recompute), /v1/leaderboard/systems, /v1/model-fit, /v1/monitor/series
+- [x] GB5 Web: home pivot, class leaderboards, /bench detail, /model-fit, /cloud, methodology update
+- [x] GB6 CI: e2e-bench (mock, every PR; PASSES locally) + e2e-bench-real (nightly) + cloud-monitor.yaml cron [B keys]
 - [ ] GB7 README + docs images regenerated for the pivot; spec reconciled
 - [ ] GB8 Full verification: mise run check, e2e.sh, e2e-bench.sh, CI green

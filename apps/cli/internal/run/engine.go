@@ -44,6 +44,9 @@ type Options struct {
 	SkipHardwareDetection bool
 	// SweepID, when set, marks this run as one cell of a parameter sweep.
 	SweepID string
+	// BenchID, when set, marks this run as one cell of a zero-choice
+	// benchmark program (stamped into the envelope before signing).
+	BenchID string
 	// Temperature overrides the manifest decoding temperature (sweeps).
 	Temperature *float64
 	// MaxTokens overrides the manifest decoding max_tokens (sweeps).
@@ -605,6 +608,10 @@ func buildEnvelope(
 	if opts.SweepID != "" {
 		sweepID := opts.SweepID
 		envelope.SweepId = &sweepID
+	}
+	if opts.BenchID != "" {
+		benchID := opts.BenchID
+		envelope.BenchId = &benchID
 	}
 	if version.Commit != "" && version.Commit != "none" {
 		commit := version.Commit

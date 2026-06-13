@@ -126,3 +126,47 @@ func TestCanonicalJSONDoesNotEscapeHTML(t *testing.T) {
 		t.Fatalf("CanonicalJSON = %s, want %s", got, want)
 	}
 }
+
+// SignBenchmark must produce a verifiable block over the benchmark envelope,
+// sharing the same canonicalization and key as run signing.
+func TestSignAndVerifyBenchmark(t *testing.T) {
+	env := schema.BenchmarkV1Json{
+		SchemaVersion: "aimark.benchmark.v1",
+		BenchId:       "01HZZZZZZZZZZZZZZZZZZZZZZZ",
+		CreatedAt:     time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC),
+		Source:        schema.BenchmarkV1JsonSourceCi,
+		Cli: schema.BenchmarkV1JsonCli{
+			Version: "0.1.0",
+			Os:      schema.BenchmarkV1JsonCliOsLinux,
+			Arch:    schema.BenchmarkV1JsonCliArchAmd64,
+		},
+		Program: schema.BenchmarkV1JsonProgram{Id: "bench", Version: 1},
+		Class:   "compact",
+		Cells: []schema.BenchmarkV1JsonCellsElem{
+			{CellId: "sprint-class", RunId: "01HZZZZZZZZZZZZZZZZZZZZZZ0", Role: schema.BenchmarkV1JsonCellsElemRoleScore},
+		},
+	}
+	if err := SignBenchmark(&env); err != nil {
+		t.Fatalf("SignBenchmark: %v", err)
+	}
+	if env.Integrity == nil || len(env.Integrity.PayloadSha256) != 64 || env.Integrity.Hmac == nil {
+		t.Fatalf("incomplete integrity block: %+v", env.Integrity)
+	}
+	if env.Integrity.KeyGen == nil || *env.Integrity.KeyGen != KeyGen() {
+		t.Fatalf("key_gen mismatch: %+v", env.Integrity.KeyGen)
+	}
+
+	ok, err := VerifyBenchmark(env)
+	if err != nil || !ok {
+		t.Fatalf("VerifyBenchmark = %v, %v; want true", ok, err)
+	}
+
+	env.Class = "ultra" // tamper
+	ok, err = VerifyBenchmark(env)
+	if err != nil {
+		t.Fatalf("VerifyBenchmark tampered: %v", err)
+	}
+	if ok {
+		t.Fatal("VerifyBenchmark = true for tampered envelope")
+	}
+}

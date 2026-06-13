@@ -22,7 +22,7 @@ func newResultsCmd() *cobra.Command {
 func newResultsListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List saved runs",
+		Short: "List saved benchmarks and runs",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store, err := results.Open()
 			if err != nil {
@@ -32,12 +32,48 @@ func newResultsListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			benchIDs, err := store.ListBench()
+			if err != nil {
+				return err
+			}
 			out := cmd.OutOrStdout()
-			if len(ids) == 0 {
-				fmt.Fprintf(out, "no results in %s — run `aimark run <suite> --target <t>` first\n", store.Dir)
+			if len(ids) == 0 && len(benchIDs) == 0 {
+				fmt.Fprintf(out, "no results in %s — run `aimark` (system benchmark) or `aimark run <suite> --target <t>` first\n", store.Dir)
 				return nil
 			}
-			fmt.Fprintf(out, "%-26s %-12s %-28s %9s %-9s %s\n", "RUN", "SUITE", "TARGET", "COMPOSITE", "SUBMITTED", "CREATED")
+
+			if len(benchIDs) > 0 {
+				fmt.Fprintf(out, "%-26s %-12s %-28s %9s %-9s %s\n", "BENCH", "PROGRAM", "CLASS", "SCORE", "SUBMITTED", "CREATED")
+				for _, id := range benchIDs {
+					env, err := store.LoadBench(id)
+					if err != nil {
+						fmt.Fprintf(out, "%-26s (unreadable: %v)\n", id, err)
+						continue
+					}
+					score := "-"
+					if env.ProvisionalScores != nil && env.ProvisionalScores.Composite != nil {
+						score = fmt.Sprintf("%.0f", *env.ProvisionalScores.Composite)
+					}
+					submitted := "no"
+					if store.IsSubmitted(id) {
+						submitted = "yes"
+					}
+					fmt.Fprintf(out, "%-26s %-12s %-28s %9s %-9s %s\n",
+						id,
+						fmt.Sprintf("%s-%d", env.Program.Id, env.Program.Version),
+						env.Class,
+						score,
+						submitted,
+						env.CreatedAt.Format("2006-01-02 15:04"))
+				}
+				if len(ids) > 0 {
+					fmt.Fprintln(out)
+				}
+			}
+
+			if len(ids) > 0 {
+				fmt.Fprintf(out, "%-26s %-12s %-28s %9s %-9s %s\n", "RUN", "SUITE", "TARGET", "COMPOSITE", "SUBMITTED", "CREATED")
+			}
 			for _, id := range ids {
 				env, err := store.LoadEnvelope(id)
 				if err != nil {
@@ -52,10 +88,14 @@ func newResultsListCmd() *cobra.Command {
 				if store.IsSubmitted(id) {
 					submitted = "yes"
 				}
+				target := env.Target.Model
+				if env.BenchId != nil {
+					target += " (bench cell)"
+				}
 				fmt.Fprintf(out, "%-26s %-12s %-28s %9s %-9s %s\n",
 					id,
 					fmt.Sprintf("%s-%d", env.Suite.Id, env.Suite.Version),
-					env.Target.Model,
+					target,
 					composite,
 					submitted,
 					env.CreatedAt.Format("2006-01-02 15:04"))

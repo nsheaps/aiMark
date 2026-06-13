@@ -30,15 +30,21 @@ func ResolveAPI(flag string) string {
 	return DefaultAPI
 }
 
-// Response is the API's answer to a successful run submission.
+// Response is the API's answer to a successful submission (run_id for runs,
+// bench_id for benchmarks).
 type Response struct {
 	RunID      string `json:"run_id"`
+	BenchID    string `json:"bench_id"`
 	ClaimToken string `json:"claim_token"`
 	PublicURL  string `json:"public_url"`
 }
 
 // ErrDuplicate is returned when the API already has this run (HTTP 409).
 var ErrDuplicate = errors.New("run already submitted (HTTP 409)")
+
+// ErrBenchmarksUnsupported is returned when the API does not accept
+// benchmark envelopes yet (HTTP 404/501 from POST /v1/benchmarks).
+var ErrBenchmarksUnsupported = errors.New("the server does not accept benchmark envelopes yet")
 
 // ValidationError is returned when the API rejects the envelope (HTTP 422).
 type ValidationError struct {
@@ -62,11 +68,23 @@ func New(api string) *Client {
 
 // Submit POSTs the envelope to {api}/v1/runs.
 func (c *Client) Submit(ctx context.Context, env schema.RunV1Json) (*Response, error) {
+	return c.post(ctx, "/v1/runs", env, false)
+}
+
+// SubmitBenchmark POSTs the benchmark envelope to {api}/v1/benchmarks.
+// A 404/501 maps to ErrBenchmarksUnsupported (the server predates the
+// benchmark endpoint); callers should keep the envelope pending.
+func (c *Client) SubmitBenchmark(ctx context.Context, env schema.BenchmarkV1Json) (*Response, error) {
+	return c.post(ctx, "/v1/benchmarks", env, true)
+}
+
+// post sends one envelope and decodes the API's answer.
+func (c *Client) post(ctx context.Context, path string, env any, benchmark bool) (*Response, error) {
 	payload, err := json.Marshal(env)
 	if err != nil {
 		return nil, fmt.Errorf("submit: marshal envelope: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.API+"/v1/runs", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.API+path, bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("submit: build request: %w", err)
 	}
@@ -91,8 +109,13 @@ func (c *Client) Submit(ctx context.Context, env schema.RunV1Json) (*Response, e
 		return nil, fmt.Errorf("%w: %s", ErrDuplicate, apiDetail(body))
 	case http.StatusUnprocessableEntity:
 		return nil, &ValidationError{Detail: apiDetail(body)}
+	case http.StatusNotFound, http.StatusNotImplemented:
+		if benchmark {
+			return nil, fmt.Errorf("%w (HTTP %d)", ErrBenchmarksUnsupported, resp.StatusCode)
+		}
+		return nil, fmt.Errorf("submit: HTTP %d from %s%s: %s", resp.StatusCode, c.API, path, apiDetail(body))
 	default:
-		return nil, fmt.Errorf("submit: HTTP %d from %s/v1/runs: %s", resp.StatusCode, c.API, apiDetail(body))
+		return nil, fmt.Errorf("submit: HTTP %d from %s%s: %s", resp.StatusCode, c.API, path, apiDetail(body))
 	}
 }
 
