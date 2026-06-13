@@ -115,3 +115,20 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 All of G1–G7 done (or [B] with owner action documented), `mise run check` green,
 e2e workflow green in CI, docs images generated and referenced, spec updated to
 match what was built, goals file fully reconciled.
+
+## GB — Zero-choice pivot (owner redirection, 2026-06-13)
+
+Intent correction: aiMark is a SYSTEM benchmark — one command, no model/suite choices;
+classes make scores comparable; models are test assets; cloud = monitoring reference;
+site = hardware buying guidance + model-fit guidance + showing off. Decision assumptions
+taken (flip-able, recorded in spec §0): bundled pinned llama.cpp; tiered download
+budgets; central cron + optional user-run cloud monitoring; advanced mode kept.
+
+- [x] GB1 Contracts: benchmark-program.v1 + benchmark.v1 schemas, bench_id on run.v1, codegen both ways
+- [x] GB2 Pinned assets: 4 Qwen2.5 GGUFs (sha256 from HF API) + llama.cpp b9616 builds (sha256 from GitHub digests)
+- [ ] GB3 CLI: classify → assets → managed llama-server → fixed program → System Score → upload; `aimark` = bench; mock-runtime path for CI; `aimark monitor` probe mode
+- [ ] GB4 API: programs/benchmarks tables, POST /v1/benchmarks (cell verification + recompute), /v1/leaderboard/systems, /v1/model-fit, /v1/monitor/series
+- [ ] GB5 Web: home pivot, class leaderboards, /bench detail, /model-fit, /cloud, methodology update
+- [ ] GB6 CI: e2e-bench (mock, every PR) + e2e-bench-real (nightly, real assets) + cloud-monitor.yaml cron [B keys]
+- [ ] GB7 README + docs images regenerated for the pivot; spec reconciled
+- [ ] GB8 Full verification: mise run check, e2e.sh, e2e-bench.sh, CI green

@@ -1,0 +1,58 @@
+name: Cloud Monitor
+
+# Probes hosted AI APIs on a schedule and submits the measurements as
+# monitoring runs (params.monitor=true, source=ci — monitoring is the one
+# place CI-sourced data is the point). The site renders the series as a
+# reference band so local scores have hosted context.
+#
+# No-ops politely until the owner provides provider keys and a target API:
+#   secrets: AIMARK_MONITOR_API (e.g. https://aimark.dev),
+#            OPENAI_API_KEY and/or ANTHROPIC_API_KEY and/or GOOGLE_API_KEY
+on:
+  schedule:
+    - cron: '41 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: cloud-monitor
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      HAS_TARGET: ${{ secrets.AIMARK_MONITOR_API != '' }}
+    steps:
+      - name: Secrets not configured
+        if: env.HAS_TARGET != 'true'
+        run: echo 'AIMARK_MONITOR_API secret not set — skipping cloud monitoring.'
+
+      - uses: actions/checkout@v6
+        if: env.HAS_TARGET == 'true'
+
+      - name: Setup mise
+        if: env.HAS_TARGET == 'true'
+        uses: jdx/mise-action@v4
+
+      - name: Build CLI
+        if: env.HAS_TARGET == 'true'
+        run: cd apps/cli && go build -o /tmp/aimark ./cmd/aimark
+
+      - name: Probe providers
+        if: env.HAS_TARGET == 'true'
+        env:
+          AIMARK_API: ${{ secrets.AIMARK_MONITOR_API }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          set -e
+          probe() { # provider model
+            echo "::group::$1 $2"
+            /tmp/aimark monitor --provider "$1" --model "$2" --yes || echo "probe $1/$2 failed (continuing)"
+            echo "::endgroup::"
+          }
+          [ -n "${OPENAI_API_KEY:-}" ] && probe openai gpt-4o-mini
+          [ -n "${ANTHROPIC_API_KEY:-}" ] && probe anthropic claude-haiku-4-5
+          [ -n "${GOOGLE_API_KEY:-}" ] && probe google gemini-2.0-flash
+          true

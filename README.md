@@ -2,18 +2,18 @@
 
 **Like 3DMark, but for AI.**
 
-aiMark is a benchmarking platform for AI inference. A local CLI tool runs standardized, versioned workload suites against AI models — local runtimes (Ollama, llama.cpp, vLLM, LM Studio, MLX) and hosted APIs (Anthropic, OpenAI, Google, Bedrock, OpenRouter) — measures performance, quality, cost-efficiency, and consistency, and submits signed scores to a public site with leaderboards, side-by-side comparisons, and a parameter-impact explorer that shows which parameters actually move scores.
+aiMark is a system benchmark for AI inference — one command scores your machine. The CLI inspects your hardware, assigns it a capability class (Compact / Mainstream / Performance / Ultra), downloads the pinned runtime and model assets for that class, runs the fixed test program, and gives your machine an aiMark System Score you can publish to public class leaderboards. Models are test assets — versioned parts of the benchmark, like 3DMark's scenes — not choices you make.
+
+The collected data answers two questions for everyone: **what hardware should I buy to run local AI**, and **which models work well on hardware like mine** — plus the third, unofficial question: whose rig is fastest.
 
 ## How it works
 
 ```
-brew install aimark          # or curl installer / GitHub Releases
-aimark detect                # discover your hardware + installed runtimes
-aimark run sprint-1 --target ollama:llama3.1:8b
-aimark submit                # publish your score (anonymous or GitHub-linked)
+curl -fsSL https://aimark.dev/install.sh | sh
+aimark                       # that's it: detect → classify → run → System Score
 ```
 
-Your run appears on the public leaderboard, comparable against every other submission for the same suite version and track.
+`aimark` prints your class and score, then offers to upload — anonymously by default. Your machine appears on its class leaderboard, comparable against every system that ran the identical program. Power users can still hand-pick suites, models, and targets with `aimark run …` (advanced mode, kept off the official class boards), including hosted-API probes that feed the cloud monitoring reference series.
 
 ## A look around
 
