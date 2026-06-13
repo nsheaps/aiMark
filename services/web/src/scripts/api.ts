@@ -66,6 +66,39 @@ export interface RunDetail {
   created_at?: string;
 }
 
+/** One aggregate row from /v1/models or /v1/hardware: a dimension value's run
+ * count + median composite on one (suite, version, track) board. */
+export interface DimensionAggRow {
+  suite: string;
+  version: number;
+  track: string;
+  n: number;
+  median_composite: number | null;
+}
+
+export interface ModelAggRow extends DimensionAggRow {
+  model: string;
+}
+
+export interface HardwareAggRow extends DimensionAggRow {
+  hardware_profile_id: string;
+}
+
+export interface SuiteSummary {
+  id: string;
+  version: number;
+  status: string;
+  title: string;
+  tracks: string[];
+  task_count: number;
+}
+
+export interface ParamImpactGroup {
+  value: string;
+  n: number;
+  median_composite: number | null;
+}
+
 // ---------------------------------------------------------------- formatting
 
 export function fmtScore(value: number | null | undefined): string {

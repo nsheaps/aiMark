@@ -24,6 +24,8 @@ export interface RateLimiter {
 export interface BlobStore {
   put(key: string, data: Uint8Array): Promise<void>;
   get(key: string): Promise<Uint8Array | null>;
+  /** Cheap existence check (Map lookup / R2 head) — guards re-uploads. */
+  exists(key: string): Promise<boolean>;
 }
 
 export interface Deps {
@@ -37,10 +39,16 @@ export interface Deps {
   baseUrl: string;
   /** Token guarding POST /v1/admin/* routes; unset disables admin routes. */
   adminToken?: string;
+  /** Cross-cohort outlier flagging: σ threshold (default 4.0). */
+  outlierSigma?: number;
+  /** Minimum cohort size before outlier flagging applies (default 8). */
+  outlierMinCohort?: number;
 }
 
 export const DEFAULT_RATE_LIMIT = 20;
 export const DAY_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_OUTLIER_SIGMA = 4.0;
+export const DEFAULT_OUTLIER_MIN_COHORT = 8;
 
 /** Sliding-window limiter backed by an in-memory Map (bun dev/tests). */
 export class InMemoryRateLimiter implements RateLimiter {
@@ -79,5 +87,9 @@ export class InMemoryBlobStore implements BlobStore {
 
   get(key: string): Promise<Uint8Array | null> {
     return Promise.resolve(this.blobs.get(key) ?? null);
+  }
+
+  exists(key: string): Promise<boolean> {
+    return Promise.resolve(this.blobs.has(key));
   }
 }

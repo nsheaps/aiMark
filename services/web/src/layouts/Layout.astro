@@ -16,8 +16,13 @@ const {
 // assets), so this is empty and all client fetches use relative URLs.
 const apiBase: string = import.meta.env.PUBLIC_AIMARK_API ?? "";
 
+// "Explore" cluster (Models / Hardware / Params) sits between the boards and
+// the comparison tooling — discovery pages over the same public data.
 const nav = [
   { href: "/leaderboard/sprint/1/", label: "Leaderboards" },
+  { href: "/models/", label: "Models" },
+  { href: "/hardware/", label: "Hardware" },
+  { href: "/explore/params/", label: "Params" },
   { href: "/compare/", label: "Compare" },
   { href: "/docs/glossary/", label: "Glossary" },
   { href: "/docs/methodology/", label: "Methodology" },
@@ -76,6 +81,9 @@ const isActive = (href: string) => path === href || (href !== "/" && path.starts
         <nav aria-label="Footer">
           <ul>
             <li><a href="/leaderboard/sprint/1/">Leaderboards</a></li>
+            <li><a href="/models/">Models</a></li>
+            <li><a href="/hardware/">Hardware</a></li>
+            <li><a href="/explore/params/">Params</a></li>
             <li><a href="/compare/">Compare</a></li>
             <li><a href="/docs/glossary/">Glossary</a></li>
             <li><a href="/docs/methodology/">Methodology</a></li>

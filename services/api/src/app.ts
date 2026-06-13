@@ -2,10 +2,15 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { and, desc, eq, inArray, count } from "drizzle-orm";
 import { validateRunV1, type AimarkRunV1, type AimarkSuiteManifestV1 } from "@aimark/schema";
-import { runs, scores, suites, hardwareProfiles } from "./db/schema";
-import { canonicalize, randomHex, sha256Hex } from "./canonical";
+import { runs, scores, suites, hardwareProfiles, artifacts } from "./db/schema";
+import { canonicalize, randomHex, sha256Hex, sha256HexBytes } from "./canonical";
 import { computeScores, hashIp, implausibleMetrics, payloadHash, verifyHmac } from "./pipeline";
-import type { Database, Deps } from "./deps";
+import {
+  DEFAULT_OUTLIER_MIN_COHORT,
+  DEFAULT_OUTLIER_SIGMA,
+  type Database,
+  type Deps,
+} from "./deps";
 
 /**
  * The Hono app is host-agnostic: it only uses the fetch standard. Platform
@@ -92,6 +97,11 @@ function clientIp(headers: Headers): string {
 const NOT_IMPLEMENTED_NOTE =
   "Phase 2: GitHub OAuth is not implemented yet (blocked on OAuth app credentials).";
 
+const ARTIFACT_KINDS = ["samples"] as const;
+const ARTIFACT_MAX_BYTES = 10 * 1024 * 1024;
+const ARTIFACT_UPLOAD_TTL_MS = 15 * 60 * 1000;
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
 export function createApp(deps: Deps) {
   const app = new Hono();
   // Production serves site + API same-origin; permissive CORS keeps the read
@@ -118,7 +128,8 @@ export function createApp(deps: Deps) {
 
   // ---------------------------------------------------------------- POST /runs
   // Submission pipeline (ordered): rate limit -> schema validate -> known suite
-  // -> HMAC -> dedup -> plausibility -> canonical score recompute -> persist.
+  // -> HMAC -> dedup -> plausibility -> canonical score recompute -> outlier
+  // check -> persist.
   app.post("/v1/runs", async (c) => {
     const db = requireDb();
     if (!db) return c.json(dbUnavailable, 503);
@@ -201,6 +212,42 @@ export function createApp(deps: Deps) {
     if (scoreMap === null && status === "accepted") {
       status = "flagged";
       flagReason = "no_scorable_metrics";
+    }
+
+    // 7b. Cross-cohort outlier flagging: compare the new composite against
+    // accepted, non-hidden, user-sourced runs on the same board. With a big
+    // enough cohort, a composite more than `sigma` standard deviations from
+    // the cohort mean is stored but flagged — it passed plausibility bounds,
+    // yet it doesn't look like anything the community has measured.
+    if (status === "accepted" && scoreMap) {
+      const sigma = deps.outlierSigma ?? DEFAULT_OUTLIER_SIGMA;
+      const minCohort = deps.outlierMinCohort ?? DEFAULT_OUTLIER_MIN_COHORT;
+      const cohort = await db
+        .select({ composite: scores.value })
+        .from(runs)
+        .innerJoin(scores, and(eq(scores.runId, runs.runId), eq(scores.name, "composite")))
+        .where(
+          and(
+            eq(runs.suiteId, envelope.suite.id),
+            eq(runs.suiteVersion, envelope.suite.version),
+            eq(runs.track, envelope.target.kind),
+            eq(runs.source, "user"),
+            eq(runs.status, "accepted"),
+            eq(runs.hidden, 0),
+          ),
+        );
+      const composite = scoreMap["composite"];
+      if (cohort.length >= minCohort && composite !== undefined) {
+        const values = cohort.map((r) => r.composite);
+        const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+        const stddev = Math.sqrt(
+          values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length,
+        );
+        if (Math.abs(composite - mean) > sigma * stddev) {
+          status = "flagged";
+          flagReason = "outlier_4sigma";
+        }
+      }
     }
 
     // 8. Persist hardware profile (content-addressed), run, and scores.
@@ -305,6 +352,132 @@ export function createApp(deps: Deps) {
         .where(eq(runs.runId, id));
     }
     return c.json({ ok: true, run_id: id, action });
+  });
+
+  // ---------------------------------------- POST /runs/:id/artifacts/presign
+  // Artifact upload seam. The submitter (who holds the claim_token) declares
+  // kind + content sha256 + size and receives a one-shot upload URL. With the
+  // in-memory store (and, for now, R2 — see src/blobs-r2.ts) the URL points
+  // back at PUT /v1/artifacts/:key on this app; the random key is the
+  // capability. The declared sha256 is verified at upload time.
+  app.post("/v1/runs/:id/artifacts/presign", async (c) => {
+    const db = requireDb();
+    if (!db) return c.json(dbUnavailable, 503);
+    const id = c.req.param("id");
+    const body = (await c.req.json().catch(() => null)) as {
+      kind?: unknown;
+      content_sha256?: unknown;
+      size_bytes?: unknown;
+      claim_token?: unknown;
+    } | null;
+    const kind = typeof body?.kind === "string" ? body.kind : null;
+    const contentSha = typeof body?.content_sha256 === "string" ? body.content_sha256 : null;
+    const sizeBytes = typeof body?.size_bytes === "number" ? body.size_bytes : null;
+    const claimToken = typeof body?.claim_token === "string" ? body.claim_token : null;
+    if (
+      !kind ||
+      !(ARTIFACT_KINDS as readonly string[]).includes(kind) ||
+      !contentSha ||
+      !SHA256_HEX.test(contentSha) ||
+      sizeBytes === null ||
+      !Number.isInteger(sizeBytes) ||
+      sizeBytes <= 0 ||
+      !claimToken
+    ) {
+      return c.json(
+        {
+          error:
+            "body must be {kind: samples, content_sha256: hex64, size_bytes: positive int, claim_token}",
+        },
+        400,
+      );
+    }
+    if (sizeBytes > ARTIFACT_MAX_BYTES) {
+      return c.json({ error: "artifact too large", max_bytes: ARTIFACT_MAX_BYTES }, 413);
+    }
+    const rows = await db.select().from(runs).where(eq(runs.runId, id)).limit(1);
+    const run = rows[0];
+    if (!run) return c.json({ error: "run not found" }, 404);
+    const tokenHash = await sha256Hex(claimToken);
+    if (tokenHash !== run.claimTokenHash) {
+      return c.json({ error: "invalid claim token" }, 403);
+    }
+    const key = randomHex(24);
+    const createdAt = now();
+    await db.insert(artifacts).values({
+      key,
+      runId: id,
+      kind,
+      sha256: contentSha,
+      size: sizeBytes,
+      createdAt: createdAt.toISOString(),
+    });
+    return c.json(
+      {
+        upload_url: `${deps.baseUrl}/v1/artifacts/${key}`,
+        key,
+        expires_at: new Date(createdAt.getTime() + ARTIFACT_UPLOAD_TTL_MS).toISOString(),
+      },
+      201,
+    );
+  });
+
+  // ------------------------------------------------------- PUT /artifacts/:key
+  // Accepts the presigned body exactly once: the content must hash to the
+  // sha256 declared at presign, and a key that already has bytes is sealed.
+  app.put("/v1/artifacts/:key", async (c) => {
+    const db = requireDb();
+    if (!db) return c.json(dbUnavailable, 503);
+    const key = c.req.param("key");
+    const rows = await db.select().from(artifacts).where(eq(artifacts.key, key)).limit(1);
+    const artifact = rows[0];
+    if (!artifact) return c.json({ error: "unknown upload key" }, 404);
+    const expiresAt = Date.parse(artifact.createdAt) + ARTIFACT_UPLOAD_TTL_MS;
+    if (now().getTime() > expiresAt) {
+      return c.json({ error: "upload url expired" }, 410);
+    }
+    if (await deps.blobs.exists(key)) {
+      return c.json({ error: "artifact already uploaded", key }, 409);
+    }
+    const data = new Uint8Array(await c.req.arrayBuffer());
+    if (data.byteLength > ARTIFACT_MAX_BYTES) {
+      return c.json({ error: "artifact too large", max_bytes: ARTIFACT_MAX_BYTES }, 413);
+    }
+    const actualSha = await sha256HexBytes(data);
+    if (actualSha !== artifact.sha256) {
+      return c.json(
+        { error: "content sha256 mismatch", expected: artifact.sha256, actual: actualSha },
+        422,
+      );
+    }
+    await deps.blobs.put(key, data);
+    return c.json({ ok: true, key, run_id: artifact.runId, size_bytes: data.byteLength }, 201);
+  });
+
+  // -------------------------------------------------- GET /runs/:id/artifacts
+  app.get("/v1/runs/:id/artifacts", async (c) => {
+    const db = requireDb();
+    if (!db) return c.json(dbUnavailable, 503);
+    const id = c.req.param("id");
+    const runRows = await db
+      .select({ runId: runs.runId })
+      .from(runs)
+      .where(eq(runs.runId, id))
+      .limit(1);
+    if (!runRows[0]) return c.json({ error: "run not found" }, 404);
+    const rows = await db.select().from(artifacts).where(eq(artifacts.runId, id));
+    const items = [];
+    for (const row of rows) {
+      items.push({
+        key: row.key,
+        kind: row.kind,
+        sha256: row.sha256,
+        size_bytes: row.size,
+        created_at: row.createdAt,
+        uploaded: await deps.blobs.exists(row.key),
+      });
+    }
+    return c.json({ run_id: id, artifacts: items });
   });
 
   // ------------------------------------------------------------ GET /leaderboard

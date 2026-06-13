@@ -56,6 +56,19 @@ export const scores = sqliteTable(
   (t) => [primaryKey({ columns: [t.runId, t.name] })],
 );
 
+export const artifacts = sqliteTable("artifacts", {
+  /** Opaque random key — possession of the upload URL is the capability. */
+  key: text("key").primaryKey(),
+  runId: text("run_id").notNull(),
+  /** Artifact kind; only "samples" exists today. */
+  kind: text("kind").notNull(),
+  /** Expected content sha256, declared at presign and verified at upload. */
+  sha256: text("sha256").notNull(),
+  /** Declared size in bytes (capped at presign). */
+  size: integer("size").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const hardwareProfiles = sqliteTable("hardware_profiles", {
   id: text("id").primaryKey(),
   profileJson: text("profile_json").notNull(),

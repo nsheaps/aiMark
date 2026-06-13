@@ -39,6 +39,12 @@ export async function sha256Hex(message: string): Promise<string> {
   return toHex(digest);
 }
 
+export async function sha256HexBytes(data: Uint8Array): Promise<string> {
+  // Copy so the view is plain-ArrayBuffer-backed (digest() rejects SharedArrayBuffer views).
+  const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(data));
+  return toHex(digest);
+}
+
 export async function hmacSha256Hex(key: string, message: string): Promise<string> {
   const cryptoKey = await crypto.subtle.importKey(
     "raw",

@@ -100,6 +100,11 @@ const title = `${manifest.title} leaderboard`;
   const flaggedBox = document.getElementById("show-flagged") as HTMLInputElement;
   const filterInput = document.getElementById("model-filter") as HTMLInputElement;
 
+  // Deep links from /models/ (and elsewhere) prefill the model filter:
+  // /leaderboard/sprint/1/?model=llama3.1
+  const initialModel = new URLSearchParams(location.search).get("model");
+  if (initialModel) filterInput.value = initialModel;
+
   type SortDir = "asc" | "desc";
   let rows: LeaderboardRow[] = [];
   let fetchFailed = false;

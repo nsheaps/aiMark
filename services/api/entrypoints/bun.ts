@@ -25,6 +25,12 @@ const app = createApp({
   rateLimiter: new InMemoryRateLimiter(rateLimit),
   baseUrl: process.env.AIMARK_BASE_URL ?? `http://localhost:${port}`,
   adminToken: process.env.ADMIN_TOKEN,
+  outlierSigma: process.env.AIMARK_OUTLIER_SIGMA
+    ? Number(process.env.AIMARK_OUTLIER_SIGMA)
+    : undefined,
+  outlierMinCohort: process.env.AIMARK_OUTLIER_MIN_COHORT
+    ? Number(process.env.AIMARK_OUTLIER_MIN_COHORT)
+    : undefined,
 });
 
 console.log(`aimark-api listening on http://localhost:${port}`);

@@ -15,6 +15,8 @@ export const TEST_BASE_URL = "http://test.local";
 export async function createTestApp(options?: {
   rateLimit?: number;
   now?: () => Date;
+  outlierSigma?: number;
+  outlierMinCohort?: number;
 }): Promise<App> {
   const sqlite = new Database(":memory:");
   migrate(sqlite);
@@ -27,6 +29,8 @@ export async function createTestApp(options?: {
     now: options?.now,
     baseUrl: TEST_BASE_URL,
     adminToken: TEST_ADMIN_TOKEN,
+    outlierSigma: options?.outlierSigma,
+    outlierMinCohort: options?.outlierMinCohort,
   });
 }
 

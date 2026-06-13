@@ -1,0 +1,160 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Term from "../../components/Term.astro";
+---
+
+<Layout
+  title="Hardware — aiMark"
+  description="Every hardware profile on aiMark with run counts and median composite scores per suite and track."
+>
+  <div class="container page">
+    <h1>Hardware</h1>
+    <p class="lede">
+      Every <Term id="hardware-profile">hardware profile</Term> the community has benchmarked on,
+      with run counts and the median <Term id="composite-score">composite score</Term> per
+      <Term id="suite">suite</Term> and <Term id="track">track</Term>.
+    </p>
+    <div class="callout">
+      <strong>Profiles, not products.</strong> A hardware profile is the fingerprint of one machine
+      configuration — CPU, GPU, RAM, OS — captured at <Term id="run">run</Term> time. The same GPU
+      in two different machines produces two different profiles, and a profile's median folds
+      together every model and setup measured on it.
+    </div>
+
+    <form class="explore-controls" aria-label="Hardware filters">
+      <fieldset class="track-toggle">
+        <legend>Track</legend>
+        <label><input type="radio" name="track" value="" checked /> All</label>
+        <label><input type="radio" name="track" value="local" /> Local</label>
+        <label><input type="radio" name="track" value="hosted" /> Hosted</label>
+      </fieldset>
+    </form>
+
+    <div class="table-wrap" id="hardware-root" aria-live="polite">
+      <div class="data-status" role="status"><p>Loading hardware…</p></div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import {
+    apiGet,
+    el,
+    fmtScore,
+    scoreGrade,
+    setDataStatus,
+    type HardwareAggRow,
+  } from "../../scripts/api";
+
+  const root = document.getElementById("hardware-root") as HTMLElement;
+  const form = document.querySelector<HTMLFormElement>(".explore-controls");
+
+  let rows: HardwareAggRow[] = [];
+  let fetchFailed = false;
+
+  function currentTrack(): string {
+    const checked = form?.querySelector<HTMLInputElement>('input[name="track"]:checked');
+    return checked?.value ?? "";
+  }
+
+  function render() {
+    if (fetchFailed) {
+      setDataStatus(
+        root,
+        "API unreachable",
+        "We couldn't load the hardware index — check your connection or try again shortly.",
+      );
+      return;
+    }
+    const track = currentTrack();
+    const visible = rows
+      .filter((r) => !track || r.track === track)
+      .sort((a, b) => (b.median_composite ?? -Infinity) - (a.median_composite ?? -Infinity));
+
+    if (visible.length === 0) {
+      setDataStatus(
+        root,
+        "No hardware profiles yet",
+        "Run a suite and submit a score — your rig claims the first row.",
+      );
+      return;
+    }
+
+    const headRow = el(
+      "tr",
+      {},
+      el("th", { scope: "col" }, "Hardware profile"),
+      el("th", { scope: "col" }, "Suite"),
+      el("th", { scope: "col" }, "Track"),
+      el("th", { scope: "col", class: "num" }, "Runs"),
+      el("th", { scope: "col", class: "num" }, "Median aiMark Score"),
+    );
+    const tbody = el("tbody");
+    for (const row of visible) {
+      const fullId = row.hardware_profile_id;
+      tbody.append(
+        el(
+          "tr",
+          {},
+          el("td", {}, el("code", { class: "mono", title: fullId }, fullId.slice(0, 12))),
+          el("td", {}, `${row.suite} v${row.version}`),
+          el("td", {}, row.track),
+          el("td", { class: "num" }, String(row.n)),
+          el(
+            "td",
+            { class: `num ${scoreGrade(row.median_composite)}` },
+            fmtScore(row.median_composite),
+          ),
+        ),
+      );
+    }
+    root.replaceChildren(el("table", {}, el("thead", {}, headRow), tbody));
+  }
+
+  async function load() {
+    setDataStatus(root, "Loading hardware…");
+    const data = await apiGet<{ hardware: HardwareAggRow[] }>("/v1/hardware");
+    fetchFailed = !data || !Array.isArray(data.hardware);
+    rows = fetchFailed ? [] : data!.hardware;
+    render();
+  }
+
+  form?.addEventListener("change", () => render());
+  form?.addEventListener("submit", (e) => e.preventDefault());
+
+  load();
+</script>
+
+<style>
+  .explore-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 1.5rem 0 1rem;
+  }
+
+  .track-toggle {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.9rem 0.5rem;
+    display: flex;
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .track-toggle legend {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 0 0.3rem;
+  }
+
+  .track-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.92rem;
+  }
+</style>

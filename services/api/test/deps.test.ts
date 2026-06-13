@@ -23,6 +23,9 @@ describe("db-less app (worker without a D1 binding)", () => {
     for (const [path, method] of [
       ["/v1/runs", "POST"],
       ["/v1/runs/01AAAAAAAAAAAAAAAAAAAAAAAA", "GET"],
+      ["/v1/runs/01AAAAAAAAAAAAAAAAAAAAAAAA/artifacts", "GET"],
+      ["/v1/runs/01AAAAAAAAAAAAAAAAAAAAAAAA/artifacts/presign", "POST"],
+      ["/v1/artifacts/somekey", "PUT"],
       ["/v1/leaderboard?suite=sprint", "GET"],
       ["/v1/suites", "GET"],
       ["/v1/compare?ids=a", "GET"],

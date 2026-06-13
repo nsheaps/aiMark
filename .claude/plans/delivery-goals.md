@@ -49,8 +49,8 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 - [x] G3.5 GET /v1/suites; GET /v1/compare?ids=; GET /v1/models, /v1/hardware (+summaries)
 - [x] G3.6 GET /v1/params/impact (effect sizes across submissions, Phase 3)
 - [x] G3.7 Rate limiting: sliding window per hashed IP (KV in prod, memory/sqlite in dev)
-- [~] G3.8 (in-memory blob store + interface seam; R2 binding + presign endpoint pending) Artifacts: presign endpoint + blob interface (R2 prod / filesystem dev)
-- [~] G3.9 (manifest plausibility bounds + flagging done; cross-cohort 4σ outlier detection pending) Statistical plausibility + >4σ outlier flagging; integrity tiers unverified/claimed/verified (Phase 3)
+- [x] G3.8 Artifacts: presign + one-shot upload + listing routes with sha256/size/TTL enforcement; R2-backed store when the worker binding exists (uploads proxy through the worker — true presigned R2 URLs need account-scoped S3 tokens). Was: Artifacts: presign endpoint + blob interface (R2 prod / filesystem dev)
+- [~] G3.9 Plausibility bounds ✓, cross-cohort 4σ outlier flagging ✓ (env-tunable); unverified/flagged tiers live; "claimed/verified" tiers need OAuth [B G9.3]. Was: Statistical plausibility + >4σ outlier flagging; integrity tiers unverified/claimed/verified (Phase 3)
 - [x] G3.10 GitHub OAuth web + device flow, /v1/me, profiles (Phase 2) — code structure; e2e [B] on OAuth app
 - [x] G3.11 Aggregate refresh admin endpoint (GitHub Actions cron compatible)
 
@@ -62,7 +62,7 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 - [x] G4.4 /compare?ids=: per-metric deltas, param-diff highlighting
 - [x] G4.5 /docs/glossary: ≥25 plain-English terms (Phase 1), full ~80 (Phase 2); `<Term>` hover tooltips
 - [x] G4.6 /docs/methodology: scoring model, tracks, versioning, integrity honesty page
-- [ ] G4.7 /models, /hardware, /explore/params explorers (Phase 3)
+- [x] G4.7 /models, /hardware, /explore/params explorers (Phase 3)
 - [x] G4.8 Install page + `install.sh` curl installer served from the site
 
 ## G5 — Suites (data)
