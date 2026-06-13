@@ -131,4 +131,4 @@ budgets; central cron + optional user-run cloud monitoring; advanced mode kept.
 - [x] GB5 Web: home pivot, class leaderboards, /bench detail, /model-fit, /cloud, methodology update
 - [x] GB6 CI: e2e-bench (mock, every PR; PASSES locally) + e2e-bench-real (nightly) + cloud-monitor.yaml cron [B keys]
 - [x] GB7 README + docs images regenerated for the pivot (cli-bench, systems board, bench detail, model-fit, glossary); benchmark seeder added
-- [~] GB8 Verified locally: mise run check, e2e.sh, e2e-bench.sh all pass; CI pending push
+- [x] GB8 Verified: mise run check + e2e.sh + e2e-bench.sh pass locally; CI green on 811838e (lint/build/test/e2e-mock/e2e-bench/deploy); real-asset path verified — dispatch run 27454432805 e2e-bench-real success (pinned llama.cpp + 1.5B model downloaded, classified compact, scored, server-verified)
