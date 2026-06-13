@@ -79,7 +79,7 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 - [x] G6.1 `tools/mock-llm`: deterministic OpenAI-compatible streaming server (no model download) for CI
 - [x] G6.2 `e2e.yaml`: build CLI → `aimark run` against mock-llm → local API (bun+sqlite) → **anonymous submit** → assert run persisted, scores recomputed, claim token works
 - [x] G6.3 E2E asserts **CI flagging**: submitted run has source=ci; default leaderboard hides it; `include_ci=true` shows it
-- [x] G6.4 E2E exercises real-Ollama path on a schedule/manual dispatch (tiny model), not on every PR
+- [x] G6.4 E2E exercises real-Ollama path on a schedule/manual dispatch (tiny model), not on every PR — verified: dispatch run 27452214397 succeeded (qwen2.5:0.5b benchmarked, submitted, flag assertions held)
 - [x] G6.5 E2E green in CI on this branch (e2e-mock passed on 9a5cf56 and 4488a32)
 
 ## G7 — Auto-updating docs images (owner requirement)
