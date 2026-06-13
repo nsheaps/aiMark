@@ -4,6 +4,99 @@
 
 ## Overview
 
+> **REVISED INTENT (2026-06-13, supersedes conflicting text below):** aiMark is a
+> **system benchmark**, not a model-picker. Like 3DMark, the user makes zero choices:
+> download the CLI, run `aimark`, get a score. The CLI inspects the machine, assigns a
+> **capability class**, downloads the pinned runtime + model assets for that class, runs
+> the fixed test program, and uploads the score with per-model/per-workload metrics and
+> full system details. **Models are test assets** (versioned parts of the benchmark, like
+> 3DMark's scenes), not user choices. **Cloud APIs are demoted to background monitoring**
+> — a reference series to compare local results against, not a user-facing track.
+> The pick-your-own-model/suite machinery below survives as an *advanced mode*
+> (`aimark run …`), off the official class leaderboards.
+
+## 0. The zero-choice benchmark (bench-1)
+
+### One command
+
+```
+aimark            # detect → classify → fetch assets → run → score → offer upload
+```
+
+No flags needed. `--yes` auto-uploads, `--no-upload` skips, `--json` for machines.
+
+### Capability classes (benchmark version `bench-1`)
+
+Classification input: usable accelerator memory = max GPU VRAM; Apple-Silicon unified
+memory counts at 70%; CPU-only machines are always Compact regardless of RAM (a CPU can
+hold a 32B model but can't meaningfully run it — same reason an iGPU runs Night Raid,
+not Time Spy Extreme).
+
+| Class           | Usable accel. memory | Test model (pinned GGUF, one family for a clean scaling story) | Download |
+| --------------- | -------------------- | -------------------------------------------------------------- | -------- |
+| **Compact**     | CPU-only or < 6 GB   | Qwen2.5-1.5B-Instruct Q4_K_M                                    | ~1 GB    |
+| **Mainstream**  | 6–16 GB              | Qwen2.5-7B-Instruct Q4_K_M                                      | ~4.7 GB  |
+| **Performance** | 16–24 GB             | Qwen2.5-14B-Instruct Q4_K_M                                     | ~9 GB    |
+| **Ultra**       | ≥ 24 GB              | Qwen2.5-32B-Instruct Q4_K_M                                     | ~19 GB   |
+
+Every class **also** runs the Compact model as a cross-class anchor cell (cheap, already
+cached or tiny) so any two machines share at least one identical workload.
+
+### Test program per class
+
+The program reuses the existing suite engine as cells: (suite, model, params) tuples.
+Per class: Sprint (chat feel), Marathon (concurrency throughput), Deep Dive (context
+pressure) on the class model + Sprint on the anchor model. Gauntlet runs as a
+**validity check**, not a score input — in a hardware benchmark the model's quality is a
+constant of the class; grading failures mean the run is broken/cheated, so they flag the
+run rather than move the score. Composite = weighted geomean of performance +
+consistency sub-scores, anchored so the class reference machine ≈ 1000. Scores are
+comparable within (benchmark version, class) only; the leaderboard is **systems within a
+class**.
+
+### Runtime: bundled, pinned llama.cpp
+
+The CLI downloads a pinned llama.cpp server build per (benchmark version, OS/arch/accel)
+— Metal on darwin-arm64, CUDA + CPU on linux/windows x64, Vulkan fallback, CPU
+everywhere — sha256-verified, cached under the data dir, launched on a local port, and
+driven through the existing OpenAI-compatible adapter. One engine version per benchmark
+version, like 3DMark shipping its renderer. (Decision assumption: bundled-runtime over
+require-Ollama, for determinism; flip-able.)
+
+Assets (runtime builds + GGUFs) are declared in a **benchmark-program.v1** manifest with
+URLs + sha256 + sizes, frozen per benchmark version.
+
+### Submission
+
+Each cell submits as a run.v1 (existing pipeline, shared `bench_id`) and the CLI then
+submits a **benchmark.v1** envelope: class, benchmark version, hardware profile, cell
+run ids, composite + sub-scores (server recomputes from the cells it verified). Class
+leaderboards rank benchmark envelopes; run-level data remains the drill-down/explorer
+layer.
+
+### What the collected data is FOR (product goals)
+
+1. **Hardware buying decisions** — "I want to run local AI; what should I buy?" Class
+   leaderboards + a hardware explorer ranking real systems by measured experience.
+2. **Model-fit guidance** — "what models work well on hardware like mine?" A model ×
+   hardware matrix from collected metrics (incl. advanced-mode runs): median tok/s per
+   (model, quant, hardware cohort) with plain-language usability badges (e.g., ≥30 tok/s
+   "feels instant", 10–30 "usable", <10 "painful").
+3. **Showing off** — shareable score cards, class rank, "top rig" boards.
+
+Standardized task sets (the SWE-bench/HLE genre) are explicitly NOT the product — they
+may be borrowed as *load generators* to produce realistic measurement workloads, never
+as a graded quality competition.
+
+### Cloud APIs = monitoring only
+
+A scheduled monitor (GitHub Actions cron → CLI in probe mode, central keys; users may
+also run it with their own keys) records hosted-API latency/throughput as a **reference
+series**. The site shows it as a comparison band ("your rig vs typical hosted API"), not
+a competitive leaderboard. (Assumption: central cron + optional user runs; flip-able.)
+
+---
+
 aiMark is "3DMark for AI": a local benchmark tool (Go) runs standardized, versioned workload suites against AI models — both **local runtimes** (Ollama, llama.cpp, vLLM, LM Studio, MLX) and **hosted APIs** (Anthropic, OpenAI, Google, Bedrock, OpenRouter) — produces signed scores, and submits them to a public website with leaderboards, side-by-side comparisons, a parameter-impact explorer ("which parameters move scores"), and a novice-friendly glossary that defines every AI term. Free hosting, fronted by Cloudflare, full CI, one-command DX.
 
 Core decisions: measure **everything** (performance + quality + cost + consistency); **Go CLI**, **Bun/TS web**; hosting chosen on DX/maintainability (research below); submissions **anonymous + optional GitHub login**.
