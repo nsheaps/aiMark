@@ -1,0 +1,182 @@
+{
+  "id": "gauntlet",
+  "version": 1,
+  "status": "frozen",
+  "title": "Gauntlet 1",
+  "description": "Objective quality under pressure — math word problems, structured extraction, and multi-constraint instruction following, all machine-graded. Quality dominates the composite 3:1 over performance.",
+  "tracks": ["local", "hosted"],
+  "reference": {
+    "label": "synthetic-1",
+    "notes": "v1 anchors the 1000-point scale to round-number synthetic baselines (0.85 accuracy, 100 tok/s decode, 3000ms p95) rather than a measured reference rig. A future suite version will re-anchor to measured hardware; per the versioning rules that resets the leaderboard."
+  },
+  "protocol": {
+    "warmup_requests": 1,
+    "repetitions": 3,
+    "request_timeout_ms": 60000,
+    "streaming": true,
+    "decoding": {
+      "temperature": 0,
+      "max_tokens": 512
+    }
+  },
+  "tasks": [
+    {
+      "id": "math-change",
+      "prompt": "A store sells pencils for $0.35 each. Maria buys 14 pencils and pays with a $10 bill. How many dollars of change does she receive? Respond with only the final number.",
+      "grading": {
+        "kind": "numeric_tolerance",
+        "expected": 5.1,
+        "tolerance": 0.001
+      }
+    },
+    {
+      "id": "math-speed",
+      "prompt": "A train travels 180 kilometers in 2.5 hours. What is its average speed in kilometers per hour? Respond with only the final number.",
+      "grading": {
+        "kind": "numeric_tolerance",
+        "expected": 72,
+        "tolerance": 0.001
+      }
+    },
+    {
+      "id": "math-area",
+      "prompt": "A rectangle is 9 centimeters long and 4 centimeters wide. Its width is increased by 25 percent while its length stays the same. What is the new area in square centimeters? Respond with only the final number.",
+      "grading": {
+        "kind": "numeric_tolerance",
+        "expected": 45,
+        "tolerance": 0.001
+      }
+    },
+    {
+      "id": "math-pages",
+      "prompt": "Tom reads 12 pages on Monday. On Tuesday he reads twice as many pages as on Monday. On Wednesday he reads 8 fewer pages than on Tuesday. How many pages does he read in total across the three days? Respond with only the final number.",
+      "grading": {
+        "kind": "numeric_tolerance",
+        "expected": 52,
+        "tolerance": 0.001
+      }
+    },
+    {
+      "id": "extract-person",
+      "prompt": "Read this passage: 'Dr. Elena Vasquez, 47, has spent two decades as a marine biologist and now leads a research lab in Lisbon.' Respond with only a JSON object with exactly these keys: name (string), age (number), profession (string), city (string). No other keys, no commentary.",
+      "grading": {
+        "kind": "json_schema",
+        "schema": {
+          "type": "object",
+          "required": ["name", "age", "profession", "city"],
+          "properties": {
+            "name": { "type": "string" },
+            "age": { "type": "number" },
+            "profession": { "type": "string" },
+            "city": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "extract-order",
+      "prompt": "Read this passage: 'Order TK-4821 for 12 ceramic mugs was placed on March 3 and has already been shipped to the customer.' Respond with only a JSON object with exactly these keys: order_id (string), quantity (number), shipped (boolean). No other keys, no commentary.",
+      "grading": {
+        "kind": "json_schema",
+        "schema": {
+          "type": "object",
+          "required": ["order_id", "quantity", "shipped"],
+          "properties": {
+            "order_id": { "type": "string" },
+            "quantity": { "type": "number" },
+            "shipped": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "extract-event",
+      "prompt": "Read this passage: 'The first World Expo, known as the Great Exhibition, took place in London in 1851 and drew six million visitors.' Respond with only a JSON object with exactly these keys: title (string), year (number), city (string). No other keys, no commentary.",
+      "grading": {
+        "kind": "json_schema",
+        "schema": {
+          "type": "object",
+          "required": ["title", "year", "city"],
+          "properties": {
+            "title": { "type": "string" },
+            "year": { "type": "number" },
+            "city": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "extract-book",
+      "prompt": "Read this passage: 'Published as a 312-page paperback, The Glass Harbor by Naomi Chen remains one of the decade's most borrowed library books.' Respond with only a JSON object with exactly these keys: title (string), author (string), pages (number), format (one of the strings \"hardcover\", \"paperback\", or \"ebook\"). No other keys, no commentary.",
+      "grading": {
+        "kind": "json_schema",
+        "schema": {
+          "type": "object",
+          "required": ["title", "author", "pages", "format"],
+          "properties": {
+            "title": { "type": "string" },
+            "author": { "type": "string" },
+            "pages": { "type": "number" },
+            "format": { "type": "string", "enum": ["hardcover", "paperback", "ebook"] }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "follow-announcement",
+      "prompt": "Write a short product announcement (3-5 sentences) for a reusable water bottle called HydraPeak. Your announcement must mention the product name 'HydraPeak', the phrase 'BPA-free', and the phrase 'lifetime warranty'.",
+      "grading": {
+        "kind": "contains_all",
+        "required_substrings": ["HydraPeak", "BPA-free", "lifetime warranty"]
+      }
+    },
+    {
+      "id": "follow-recipe",
+      "prompt": "Write a short introduction (3-5 sentences) for a pasta recipe. Your introduction must mention the words 'basil', 'garlic', and 'olive oil'.",
+      "grading": {
+        "kind": "contains_all",
+        "required_substrings": ["basil", "garlic", "olive oil"]
+      }
+    },
+    {
+      "id": "follow-travel",
+      "prompt": "Write a short travel blurb (3-5 sentences) about visiting Japan in spring. Your blurb must mention the words 'Kyoto', 'temples', and 'cherry blossoms'.",
+      "grading": {
+        "kind": "contains_all",
+        "required_substrings": ["Kyoto", "temples", "cherry blossoms"]
+      }
+    },
+    {
+      "id": "follow-job",
+      "prompt": "Write a short job posting (3-5 sentences) for a senior frontend developer. Your posting must mention the words 'remote', 'TypeScript', and 'health insurance'.",
+      "grading": {
+        "kind": "contains_all",
+        "required_substrings": ["remote", "TypeScript", "health insurance"]
+      }
+    }
+  ],
+  "scoring": {
+    "quality": {
+      "metrics": [{ "key": "quality_accuracy", "reference": 0.85, "weight": 1 }]
+    },
+    "performance": {
+      "metrics": [
+        { "key": "decode_tps_mean", "reference": 100, "weight": 1 },
+        { "key": "latency_ms_p95", "reference": 3000, "weight": 2, "lower_is_better": true }
+      ]
+    },
+    "composite_weights": {
+      "quality": 3,
+      "performance": 1
+    }
+  },
+  "plausibility": {
+    "quality_accuracy": { "min": 0, "max": 1 },
+    "decode_tps_mean": { "min": 0.1, "max": 50000 },
+    "latency_ms_p95": { "min": 1, "max": 600000 }
+  }
+}

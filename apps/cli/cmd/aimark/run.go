@@ -12,6 +12,7 @@ import (
 	"github.com/nsheaps/aimark/apps/cli/internal/results"
 	"github.com/nsheaps/aimark/apps/cli/internal/run"
 	"github.com/nsheaps/aimark/apps/cli/internal/suites"
+	"github.com/nsheaps/aimark/apps/cli/internal/sweep"
 	"github.com/nsheaps/aimark/apps/cli/internal/target"
 	"github.com/spf13/cobra"
 )
@@ -30,6 +31,7 @@ type runFlags struct {
 	estimate  bool
 	priceIn   float64
 	priceOut  float64
+	sweepFile string
 }
 
 func newRunCmd() *cobra.Command {
@@ -40,9 +42,26 @@ func newRunCmd() *cobra.Command {
 		Long: `Run a benchmark suite against a target and save the result locally.
 
 Target syntax:
-  ollama:<model>   native Ollama (default http://localhost:11434, override with --target-url)
-  openai:<model>   any OpenAI-compatible endpoint; --target-url required
-                   (vLLM, LM Studio, llama.cpp server, OpenRouter, OpenAI, ...)`,
+  ollama:<model>     native Ollama (default http://localhost:11434, override with --target-url)
+  openai:<model>     any OpenAI-compatible endpoint; --target-url required
+                     (vLLM, LM Studio, llama.cpp server, OpenRouter, OpenAI, ...)
+  anthropic:<model>  Anthropic Messages API ($ANTHROPIC_API_KEY or --api-key)
+  google:<model>     Gemini API ($GOOGLE_API_KEY or --api-key)
+  bedrock:<model>    not yet supported — use openai:<model> --target-url
+                     against a bedrock-access-gateway
+
+Sweeps:
+  --sweep sweep.yaml runs the cartesian product of a parameter matrix; every
+  cell is a full run saved individually, sharing one sweep_id. Example:
+
+    target:
+      num_ctx: 4096
+    matrix:
+      model: [llama3.1:8b, qwen2.5:7b]
+      temperature: [0, 0.7]
+
+  Matrix keys model, num_ctx, temperature, max_tokens, and concurrency steer
+  the run; any other key is recorded in the run's params.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBenchmark(cmd, args[0], flags)
@@ -62,6 +81,7 @@ Target syntax:
 	f.BoolVar(&flags.estimate, "estimate", false, "print projected token usage and cost, then exit without running")
 	f.Float64Var(&flags.priceIn, "price-in", 0, "input price in $ per Mtok (hosted targets, for --estimate and the pricing snapshot)")
 	f.Float64Var(&flags.priceOut, "price-out", 0, "output price in $ per Mtok")
+	f.StringVar(&flags.sweepFile, "sweep", "", "run a parameter sweep from a YAML file (matrix cartesian product)")
 	_ = cmd.MarkFlagRequired("target")
 	return cmd
 }
@@ -91,14 +111,23 @@ func parseParams(pairs []string) (map[string]any, error) {
 	return params, nil
 }
 
-func resolveAPIKey(flagValue string) string {
+// resolveAPIKey resolves the target API key: explicit flag, then
+// $AIMARK_TARGET_API_KEY, then the adapter's conventional env var.
+func resolveAPIKey(flagValue, adapter string) string {
 	if flagValue != "" {
 		return flagValue
 	}
 	if v := os.Getenv("AIMARK_TARGET_API_KEY"); v != "" {
 		return v
 	}
-	return os.Getenv("OPENAI_API_KEY")
+	switch adapter {
+	case "anthropic":
+		return os.Getenv("ANTHROPIC_API_KEY")
+	case "google":
+		return os.Getenv("GOOGLE_API_KEY")
+	default:
+		return os.Getenv("OPENAI_API_KEY")
+	}
 }
 
 func runBenchmark(cmd *cobra.Command, suiteArg string, flags runFlags) error {
@@ -107,12 +136,13 @@ func runBenchmark(cmd *cobra.Command, suiteArg string, flags runFlags) error {
 		return err
 	}
 
-	tgt, err := target.New(flags.target, target.Options{
-		BaseURL: flags.targetURL,
-		APIKey:  resolveAPIKey(flags.apiKey),
-	})
+	adapter, _, err := target.Parse(flags.target)
 	if err != nil {
 		return err
+	}
+	targetOpts := target.Options{
+		BaseURL: flags.targetURL,
+		APIKey:  resolveAPIKey(flags.apiKey, adapter),
 	}
 
 	params, err := parseParams(flags.params)
@@ -138,9 +168,8 @@ func runBenchmark(cmd *cobra.Command, suiteArg string, flags runFlags) error {
 		fmt.Fprintf(stderr, "aimark %s — target %s\n", suite.Key, flags.target)
 	}
 
-	outcome, err := run.Execute(cmd.Context(), run.Options{
+	baseOpts := run.Options{
 		Suite:    suite,
-		Target:   tgt,
 		Reps:     flags.reps,
 		Warmups:  flags.warmups,
 		Source:   source,
@@ -148,15 +177,28 @@ func runBenchmark(cmd *cobra.Command, suiteArg string, flags runFlags) error {
 		PriceIn:  flags.priceIn,
 		PriceOut: flags.priceOut,
 		Progress: progress,
-	})
-	if err != nil {
-		return err
 	}
 
 	store, err := results.Open()
 	if err != nil {
 		return err
 	}
+
+	if flags.sweepFile != "" {
+		return runSweep(cmd, suite, store, flags, targetOpts, baseOpts)
+	}
+
+	tgt, err := target.New(flags.target, targetOpts)
+	if err != nil {
+		return err
+	}
+	baseOpts.Target = tgt
+
+	outcome, err := run.Execute(cmd.Context(), baseOpts)
+	if err != nil {
+		return err
+	}
+
 	if err := store.Save(outcome.Envelope, outcome.Samples); err != nil {
 		return err
 	}
@@ -175,6 +217,103 @@ func runBenchmark(cmd *cobra.Command, suiteArg string, flags runFlags) error {
 	return nil
 }
 
+// runSweep executes every cell of a sweep file as a full run and prints a
+// summary table.
+func runSweep(
+	cmd *cobra.Command,
+	suite suites.Suite,
+	store *results.Store,
+	flags runFlags,
+	targetOpts target.Options,
+	baseOpts run.Options,
+) error {
+	cfg, err := sweep.Load(flags.sweepFile)
+	if err != nil {
+		return err
+	}
+
+	stderr := cmd.ErrOrStderr()
+	cellCount := len(cfg.Cells())
+	if !flags.quiet {
+		fmt.Fprintf(stderr, "sweep: %d cells\n", cellCount)
+	}
+
+	sweepID, cells, err := sweep.Execute(cmd.Context(), cfg, sweep.ExecOptions{
+		TargetSpec: flags.target,
+		TargetOpts: targetOpts,
+		Base:       baseOpts,
+		Save: func(o *run.Outcome) error {
+			return store.Save(o.Envelope, o.Samples)
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	out := cmd.OutOrStdout()
+	if flags.asJSON {
+		type cellSummary struct {
+			Params    map[string]any     `json:"params"`
+			RunID     string             `json:"run_id,omitempty"`
+			Composite float64            `json:"composite,omitempty"`
+			Metrics   map[string]float64 `json:"metrics,omitempty"`
+			Error     string             `json:"error,omitempty"`
+		}
+		summary := struct {
+			SweepID string        `json:"sweep_id"`
+			Cells   []cellSummary `json:"cells"`
+		}{SweepID: sweepID}
+		for _, c := range cells {
+			cs := cellSummary{Params: c.Params}
+			if c.Err != nil {
+				cs.Error = c.Err.Error()
+			} else {
+				cs.RunID = c.Outcome.Envelope.RunId
+				cs.Composite = c.Outcome.Composite
+				cs.Metrics = c.Outcome.Envelope.Metrics
+			}
+			summary.Cells = append(summary.Cells, cs)
+		}
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		return enc.Encode(summary)
+	}
+
+	printSweepSummary(out, suite, sweepID, cells)
+	return nil
+}
+
+// printSweepSummary renders the per-cell sweep results as a plain table.
+func printSweepSummary(out io.Writer, suite suites.Suite, sweepID string, cells []sweep.CellRun) {
+	fmt.Fprintf(out, "\nSweep %s — %s (%d cells)\n\n", sweepID, suite.Key, len(cells))
+	fmt.Fprintf(out, "  %-44s %-28s %10s\n", "params", "run", "composite")
+	failed := 0
+	for _, c := range cells {
+		keys := make([]string, 0, len(c.Params))
+		for k := range c.Params {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		parts := make([]string, 0, len(keys))
+		for _, k := range keys {
+			parts = append(parts, fmt.Sprintf("%s=%v", k, c.Params[k]))
+		}
+		label := strings.Join(parts, " ")
+		if c.Err != nil {
+			failed++
+			fmt.Fprintf(out, "  %-44s %-28s %10s\n", label, "FAILED: "+c.Err.Error(), "-")
+			continue
+		}
+		composite := "-"
+		if c.Outcome.Composite > 0 {
+			composite = fmt.Sprintf("%.0f", c.Outcome.Composite)
+		}
+		fmt.Fprintf(out, "  %-44s %-28s %10s\n", label, c.Outcome.Envelope.RunId, composite)
+	}
+	fmt.Fprintf(out, "\n  %d/%d cells succeeded\n", len(cells)-failed, len(cells))
+	fmt.Fprintln(out, "  Submit with: aimark submit --all-pending")
+}
+
 // printEstimate projects request counts, token usage, and (when pricing is
 // known) cost for the run.
 func printEstimate(out io.Writer, suite suites.Suite, flags runFlags) error {
@@ -187,7 +326,11 @@ func printEstimate(out io.Writer, suite suites.Suite, flags runFlags) error {
 	if flags.warmups >= 0 {
 		warmups = flags.warmups
 	}
-	requests := warmups + reps*len(m.Tasks)
+	passes := 1
+	if n := len(m.Protocol.ConcurrencyLevels); n > 0 {
+		passes = n
+	}
+	requests := warmups + reps*len(m.Tasks)*passes
 
 	// Rough prompt token estimate: ~4 chars per token.
 	promptChars := 0
@@ -205,7 +348,12 @@ func printEstimate(out io.Writer, suite suites.Suite, flags runFlags) error {
 	outputTokens := requests * m.Protocol.Decoding.MaxTokens // upper bound
 
 	fmt.Fprintf(out, "Estimate for %s against %s\n", suite.Key, flags.target)
-	fmt.Fprintf(out, "  requests       %d (%d warmups + %d reps x %d tasks)\n", requests, warmups, reps, len(m.Tasks))
+	if passes > 1 {
+		fmt.Fprintf(out, "  requests       %d (%d warmups + %d reps x %d tasks x %d concurrency levels)\n",
+			requests, warmups, reps, len(m.Tasks), passes)
+	} else {
+		fmt.Fprintf(out, "  requests       %d (%d warmups + %d reps x %d tasks)\n", requests, warmups, reps, len(m.Tasks))
+	}
 	fmt.Fprintf(out, "  input tokens   ~%d\n", inputTokens)
 	fmt.Fprintf(out, "  output tokens  <=%d (max_tokens %d per request)\n", outputTokens, m.Protocol.Decoding.MaxTokens)
 
@@ -252,10 +400,27 @@ func printScoreCard(out io.Writer, suite suites.Suite, outcome *run.Outcome) {
 	}
 
 	fmt.Fprintln(out, "\n  key metrics")
-	for _, key := range []string{"ttft_ms_p50", "ttft_ms_p95", "latency_ms_p50", "latency_ms_p95", "decode_tps_mean", "inter_token_ms_mean"} {
+	fixed := []string{
+		"quality_accuracy", "ttft_ms_p50", "ttft_ms_p95", "latency_ms_p50", "latency_ms_p95",
+		"decode_tps_mean", "inter_token_ms_mean", "prefill_tps_mean", "throughput_scaling",
+	}
+	printed := map[string]bool{}
+	for _, key := range fixed {
 		if v, ok := env.Metrics[key]; ok {
-			fmt.Fprintf(out, "    %-22s %10.1f\n", key, v)
+			fmt.Fprintf(out, "    %-22s %10.2f\n", key, v)
+			printed[key] = true
 		}
+	}
+	// Per-concurrency-level metrics (throughput_tps_c4, latency_ms_p99_c16, ...).
+	var levelKeys []string
+	for key := range env.Metrics {
+		if !printed[key] && (strings.HasPrefix(key, "throughput_tps_c") || strings.Contains(key, "_p99_c")) {
+			levelKeys = append(levelKeys, key)
+		}
+	}
+	sort.Strings(levelKeys)
+	for _, key := range levelKeys {
+		fmt.Fprintf(out, "    %-22s %10.2f\n", key, env.Metrics[key])
 	}
 	fmt.Fprintf(out, "\n  run id: %s (source: %s, provisional — server recompute is canonical)\n", env.RunId, env.Source)
 	fmt.Fprintln(out, line)

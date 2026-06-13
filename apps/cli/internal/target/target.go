@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -86,8 +87,8 @@ func Parse(spec string) (adapter, model string, err error) {
 	return adapter, model, nil
 }
 
-// New builds a Target from a target string like "ollama:<model>" or
-// "openai:<model>".
+// New builds a Target from a target string like "ollama:<model>",
+// "openai:<model>", "anthropic:<model>", or "google:<model>".
 func New(spec string, opts Options) (Target, error) {
 	adapter, model, err := Parse(spec)
 	if err != nil {
@@ -105,8 +106,23 @@ func New(spec string, opts Options) (Target, error) {
 			return nil, fmt.Errorf("target: openai:<model> requires --target-url (vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI, ...)")
 		}
 		return NewOpenAI(opts.BaseURL, model, opts.APIKey), nil
+	case "anthropic":
+		key := opts.APIKey
+		if key == "" {
+			key = os.Getenv("ANTHROPIC_API_KEY")
+		}
+		return NewAnthropic(opts.BaseURL, model, key), nil
+	case "google":
+		key := opts.APIKey
+		if key == "" {
+			key = os.Getenv("GOOGLE_API_KEY")
+		}
+		return NewGoogle(opts.BaseURL, model, key), nil
+	case "bedrock":
+		return nil, fmt.Errorf("target: bedrock:<model> is not yet supported — Bedrock requires AWS SigV4 request signing. " +
+			"Run a bedrock-access-gateway (OpenAI-compatible proxy) and use openai:<model> --target-url against it instead")
 	default:
-		return nil, fmt.Errorf("target: unknown adapter %q (supported: ollama, openai)", adapter)
+		return nil, fmt.Errorf("target: unknown adapter %q (supported: ollama, openai, anthropic, google)", adapter)
 	}
 }
 

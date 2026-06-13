@@ -47,6 +47,15 @@ export interface RunDetail {
   id?: string;
   cli?: { version?: string };
   suite?: { id?: string; version?: number };
+  // The detail API flattens target/hardware to the top level; nested forms
+  // kept for forward compatibility with raw envelopes.
+  model?: string | null;
+  runtime?: string | null;
+  provider?: string | null;
+  quantization?: string | null;
+  track?: string | null;
+  params?: Record<string, unknown> | null;
+  hardware_profile?: Record<string, unknown> | null;
   target?: Record<string, unknown>;
   environment?: { hardware_profile?: Record<string, unknown> };
   metrics?: Record<string, number>;

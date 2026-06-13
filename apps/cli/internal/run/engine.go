@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 
+	"github.com/nsheaps/aimark/apps/cli/internal/grade"
 	"github.com/nsheaps/aimark/apps/cli/internal/hw"
 	"github.com/nsheaps/aimark/apps/cli/internal/integrity"
 	"github.com/nsheaps/aimark/apps/cli/internal/results"
@@ -40,6 +42,14 @@ type Options struct {
 	Progress func(format string, args ...any)
 	// SkipHardwareDetection disables hardware probing (tests).
 	SkipHardwareDetection bool
+	// SweepID, when set, marks this run as one cell of a parameter sweep.
+	SweepID string
+	// Temperature overrides the manifest decoding temperature (sweeps).
+	Temperature *float64
+	// MaxTokens overrides the manifest decoding max_tokens (sweeps).
+	MaxTokens *int
+	// Concurrency overrides the manifest concurrency_levels (sweeps).
+	Concurrency []int
 }
 
 // Outcome is a completed run: the signed envelope plus raw samples.
@@ -84,6 +94,102 @@ type measured struct {
 	latencyMs    float64
 	decodeTps    float64
 	interTokenMs float64
+	prefillTps   float64
+	outputTokens int
+	graded       bool
+	passed       bool
+}
+
+// collector accumulates samples and per-metric series across (possibly
+// concurrent) requests. All methods are safe for concurrent use.
+type collector struct {
+	mu       sync.Mutex
+	opts     Options
+	total    int
+	done     int
+	samples  []schema.SamplesV1JsonSamplesElem
+	ttfts    []float64
+	lats     []float64
+	decodes  []float64
+	inters   []float64
+	prefills []float64
+	graded   int
+	passed   int
+}
+
+// add records one measured request, updates aggregates, and emits progress.
+// It returns the sample's latency and output tokens for per-level rollups.
+func (c *collector) add(m measured, task string, rep int, warmup bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.samples = append(c.samples, m.sample)
+	c.done++
+
+	label := ""
+	if warmup {
+		label = " warmup"
+	}
+	if m.sample.Status == schema.SamplesV1JsonSamplesElemStatusOk {
+		gradeNote := ""
+		if m.graded {
+			if m.passed {
+				gradeNote = " grade=pass"
+			} else {
+				gradeNote = " grade=fail"
+			}
+		}
+		c.opts.progressf("[%d/%d]%s %s rep %d  ttft=%.0fms latency=%.0fms tps=%.1f%s",
+			c.done, c.total, label, task, rep, m.ttftMs, m.latencyMs, m.decodeTps, gradeNote)
+	} else {
+		detail := ""
+		if m.sample.Error != nil {
+			detail = ": " + *m.sample.Error
+		}
+		c.opts.progressf("[%d/%d]%s %s rep %d  %s%s", c.done, c.total, label, task, rep, m.sample.Status, detail)
+	}
+
+	if warmup || m.sample.Status != schema.SamplesV1JsonSamplesElemStatusOk {
+		return
+	}
+	if m.ttftMs > 0 {
+		c.ttfts = append(c.ttfts, m.ttftMs)
+	}
+	if m.latencyMs > 0 {
+		c.lats = append(c.lats, m.latencyMs)
+	}
+	if m.decodeTps > 0 {
+		c.decodes = append(c.decodes, m.decodeTps)
+	}
+	if m.interTokenMs > 0 {
+		c.inters = append(c.inters, m.interTokenMs)
+	}
+	if m.prefillTps > 0 {
+		c.prefills = append(c.prefills, m.prefillTps)
+	}
+	if m.graded {
+		c.graded++
+		if m.passed {
+			c.passed++
+		}
+	}
+}
+
+func (c *collector) okCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for _, s := range c.samples {
+		if (s.Warmup == nil || !*s.Warmup) && s.Status == schema.SamplesV1JsonSamplesElemStatusOk {
+			n++
+		}
+	}
+	return n
+}
+
+// job is one queued request in a concurrent level.
+type job struct {
+	task schema.SuiteManifestV1JsonTasksElem
+	rep  int
 }
 
 // Execute runs the full suite protocol and returns the signed envelope and
@@ -91,6 +197,13 @@ type measured struct {
 func Execute(ctx context.Context, opts Options) (*Outcome, error) {
 	manifest := opts.Suite.Manifest
 	protocol := manifest.Protocol
+
+	if opts.Temperature != nil {
+		protocol.Decoding.Temperature = *opts.Temperature
+	}
+	if opts.MaxTokens != nil {
+		protocol.Decoding.MaxTokens = *opts.MaxTokens
+	}
 
 	reps := protocol.Repetitions
 	if opts.Reps > 0 {
@@ -104,85 +217,102 @@ func Execute(ctx context.Context, opts Options) (*Outcome, error) {
 		return nil, fmt.Errorf("run: suite %s has no tasks", opts.Suite.Key)
 	}
 
+	levels := protocol.ConcurrencyLevels
+	if len(opts.Concurrency) > 0 {
+		levels = opts.Concurrency
+	}
+	for _, level := range levels {
+		if level < 1 {
+			return nil, fmt.Errorf("run: invalid concurrency level %d", level)
+		}
+	}
+
 	info, err := opts.Target.Describe(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("run: describe target: %w", err)
 	}
 
 	timeout := time.Duration(protocol.RequestTimeoutMs) * time.Millisecond
-	total := warmups + reps*len(manifest.Tasks)
-	done := 0
-
-	samplesOut := make([]schema.SamplesV1JsonSamplesElem, 0, total)
-	var ttfts, latencies, decodes, interTokens []float64
-
-	execute := func(task schema.SuiteManifestV1JsonTasksElem, rep int, warmup bool) error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		m := runRequest(ctx, opts.Target, task, protocol, timeout, rep, warmup)
-		samplesOut = append(samplesOut, m.sample)
-		done++
-		label := ""
-		if warmup {
-			label = " warmup"
-		}
-		if m.sample.Status == schema.SamplesV1JsonSamplesElemStatusOk {
-			opts.progressf("[%d/%d]%s %s rep %d  ttft=%.0fms latency=%.0fms tps=%.1f",
-				done, total, label, task.Id, rep, m.ttftMs, m.latencyMs, m.decodeTps)
-		} else {
-			detail := ""
-			if m.sample.Error != nil {
-				detail = ": " + *m.sample.Error
-			}
-			opts.progressf("[%d/%d]%s %s rep %d  %s%s", done, total, label, task.Id, rep, m.sample.Status, detail)
-		}
-		if !warmup && m.sample.Status == schema.SamplesV1JsonSamplesElemStatusOk {
-			if m.ttftMs > 0 {
-				ttfts = append(ttfts, m.ttftMs)
-			}
-			if m.latencyMs > 0 {
-				latencies = append(latencies, m.latencyMs)
-			}
-			if m.decodeTps > 0 {
-				decodes = append(decodes, m.decodeTps)
-			}
-			if m.interTokenMs > 0 {
-				interTokens = append(interTokens, m.interTokenMs)
-			}
-		}
-		return nil
+	passes := 1
+	if len(levels) > 0 {
+		passes = len(levels)
+	}
+	col := &collector{
+		opts:    opts,
+		total:   warmups + reps*len(manifest.Tasks)*passes,
+		samples: make([]schema.SamplesV1JsonSamplesElem, 0, warmups+reps*len(manifest.Tasks)*passes),
 	}
 
+	// Warmups run single-stream regardless of concurrency levels.
 	for i := 0; i < warmups; i++ {
-		task := manifest.Tasks[i%len(manifest.Tasks)]
-		if err := execute(task, 0, true); err != nil {
+		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		task := manifest.Tasks[i%len(manifest.Tasks)]
+		m := runRequest(ctx, opts.Target, task, protocol, timeout, 0, true)
+		col.add(m, task.Id, 0, true)
 	}
-	for rep := 0; rep < reps; rep++ {
-		for _, task := range manifest.Tasks {
-			if err := execute(task, rep, false); err != nil {
+
+	levelMetrics := map[string]float64{}
+	if len(levels) == 0 {
+		for rep := 0; rep < reps; rep++ {
+			for _, task := range manifest.Tasks {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+				m := runRequest(ctx, opts.Target, task, protocol, timeout, rep, false)
+				col.add(m, task.Id, rep, false)
+			}
+		}
+	} else {
+		throughputs := map[int]float64{}
+		for _, level := range levels {
+			throughput, p99, err := runLevel(ctx, opts, col, manifest.Tasks, protocol, timeout, reps, level)
+			if err != nil {
 				return nil, err
 			}
+			if throughput > 0 {
+				levelMetrics[fmt.Sprintf("throughput_tps_c%d", level)] = throughput
+				throughputs[level] = throughput
+			}
+			if p99 > 0 {
+				levelMetrics[fmt.Sprintf("latency_ms_p99_c%d", level)] = p99
+			}
+		}
+		minLevel, maxLevel := levels[0], levels[0]
+		for _, level := range levels {
+			if level < minLevel {
+				minLevel = level
+			}
+			if level > maxLevel {
+				maxLevel = level
+			}
+		}
+		tMin, tMax := throughputs[minLevel], throughputs[maxLevel]
+		if maxLevel > minLevel && tMin > 0 && tMax > 0 {
+			levelMetrics["throughput_scaling"] = (tMax / tMin) / (float64(maxLevel) / float64(minLevel))
 		}
 	}
 
-	okCount := 0
-	for _, s := range samplesOut {
-		if (s.Warmup == nil || !*s.Warmup) && s.Status == schema.SamplesV1JsonSamplesElemStatusOk {
-			okCount++
-		}
-	}
-	if okCount == 0 {
+	if col.okCount() == 0 {
 		return nil, fmt.Errorf("run: every measured request failed — check the target and try `aimark doctor`")
 	}
 
-	metrics := aggregate(ttfts, latencies, decodes, interTokens)
+	metrics := aggregate(col.ttfts, col.lats, col.decodes, col.inters)
+	if len(col.prefills) > 0 {
+		metrics["prefill_tps_mean"] = mean(col.prefills)
+	}
+	if col.graded > 0 {
+		metrics["quality_accuracy"] = float64(col.passed) / float64(col.graded)
+	}
+	for k, v := range levelMetrics {
+		metrics[k] = v
+	}
+
 	subScores, composite := provisionalScores(metrics, manifest.Scoring)
 
 	runID := results.NewRunID()
-	envelope := buildEnvelope(runID, opts, info, metrics, subScores, composite)
+	envelope := buildEnvelope(runID, opts, protocol, info, metrics, subScores, composite)
 	if err := integrity.Sign(&envelope); err != nil {
 		return nil, fmt.Errorf("run: sign envelope: %w", err)
 	}
@@ -192,11 +322,78 @@ func Execute(ctx context.Context, opts Options) (*Outcome, error) {
 		Samples: schema.SamplesV1Json{
 			SchemaVersion: "aimark.samples.v1",
 			RunId:         runID,
-			Samples:       samplesOut,
+			Samples:       col.samples,
 		},
 		SubScores: subScores,
 		Composite: composite,
 	}, nil
+}
+
+// runLevel executes reps×tasks at the given concurrency with a worker pool
+// and returns the level's aggregate throughput (completed output tokens per
+// wall-clock second) and latency p99.
+func runLevel(
+	ctx context.Context,
+	opts Options,
+	col *collector,
+	tasks []schema.SuiteManifestV1JsonTasksElem,
+	protocol schema.SuiteManifestV1JsonProtocol,
+	timeout time.Duration,
+	reps, level int,
+) (throughputTps, latencyP99Ms float64, err error) {
+	opts.progressf("-- concurrency %d --", level)
+
+	jobs := make(chan job)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var levelLatencies []float64
+	levelTokens := 0
+
+	workers := level
+	start := time.Now()
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				if ctx.Err() != nil {
+					continue // drain
+				}
+				m := runRequest(ctx, opts.Target, j.task, protocol, timeout, j.rep, false)
+				lvl := level
+				m.sample.Concurrency = &lvl
+				col.add(m, j.task.Id, j.rep, false)
+				if m.sample.Status == schema.SamplesV1JsonSamplesElemStatusOk {
+					mu.Lock()
+					if m.latencyMs > 0 {
+						levelLatencies = append(levelLatencies, m.latencyMs)
+					}
+					levelTokens += m.outputTokens
+					mu.Unlock()
+				}
+			}
+		}()
+	}
+
+	for rep := 0; rep < reps; rep++ {
+		for _, task := range tasks {
+			jobs <- job{task: task, rep: rep}
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	wall := time.Since(start)
+
+	if err := ctx.Err(); err != nil {
+		return 0, 0, err
+	}
+	if wall > 0 && levelTokens > 0 {
+		throughputTps = float64(levelTokens) / wall.Seconds()
+	}
+	if len(levelLatencies) > 0 {
+		latencyP99Ms = percentile(levelLatencies, 0.99)
+	}
+	return throughputTps, latencyP99Ms, nil
 }
 
 // runRequest executes one streaming request and measures it with the
@@ -270,10 +467,15 @@ func runRequest(
 	}
 	if outputTokens > 0 {
 		m.sample.OutputTokens = &outputTokens
+		m.outputTokens = outputTokens
 	}
 	if result.InputTokens > 0 {
 		in := result.InputTokens
 		m.sample.InputTokens = &in
+		// Prefill rate: prompt tokens processed before the first output token.
+		if m.ttftMs > 0 {
+			m.prefillTps = float64(in) / (m.ttftMs / 1000)
+		}
 	}
 
 	// Decode rate and inter-token gap over the streamed window (first to
@@ -286,6 +488,16 @@ func runRequest(
 			m.interTokenMs = (float64(window) / float64(time.Millisecond)) / float64(tokenCount-1)
 			m.sample.InterTokenMsMean = &m.interTokenMs
 		}
+	}
+
+	// Objective grading (quality suites).
+	if task.Grading != nil {
+		res := grade.Grade(task.Grading, result.Text)
+		passed := res.Passed
+		detail := res.Detail
+		m.sample.Grade = &schema.SamplesV1JsonSamplesElemGrade{Passed: &passed, Detail: &detail}
+		m.graded = true
+		m.passed = passed
 	}
 
 	return m
@@ -331,6 +543,7 @@ func provisionalScores(metrics map[string]float64, scoring schema.SuiteManifestV
 func buildEnvelope(
 	runID string,
 	opts Options,
+	protocol schema.SuiteManifestV1JsonProtocol,
 	info target.TargetInfo,
 	metrics map[string]float64,
 	subScores map[string]float64,
@@ -340,8 +553,8 @@ func buildEnvelope(
 	protocolHash := opts.Suite.ProtocolHash()
 
 	params := schema.RunV1JsonTargetParams{
-		"temperature": manifest.Protocol.Decoding.Temperature,
-		"max_tokens":  manifest.Protocol.Decoding.MaxTokens,
+		"temperature": protocol.Decoding.Temperature,
+		"max_tokens":  protocol.Decoding.MaxTokens,
 	}
 	for k, v := range opts.Params {
 		params[k] = v
@@ -388,6 +601,10 @@ func buildEnvelope(
 		},
 		Target:  tgt,
 		Metrics: metrics,
+	}
+	if opts.SweepID != "" {
+		sweepID := opts.SweepID
+		envelope.SweepId = &sweepID
 	}
 	if version.Commit != "" && version.Commit != "none" {
 		commit := version.Commit

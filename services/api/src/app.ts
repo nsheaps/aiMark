@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { and, desc, eq, inArray, count } from "drizzle-orm";
 import { validateRunV1, type AimarkRunV1, type AimarkSuiteManifestV1 } from "@aimark/schema";
 import { runs, scores, suites, hardwareProfiles } from "./db/schema";
@@ -93,6 +94,9 @@ const NOT_IMPLEMENTED_NOTE =
 
 export function createApp(deps: Deps) {
   const app = new Hono();
+  // Production serves site + API same-origin; permissive CORS keeps the read
+  // API usable from previews, local dev, and third-party dashboards.
+  app.use("/v1/*", cors());
   const now = deps.now ?? (() => new Date());
 
   /** Data routes guard on this -- null means the platform binding is absent. */

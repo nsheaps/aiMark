@@ -128,12 +128,22 @@ import Layout from "../../layouts/Layout.astro";
     frag.append(scoreCard);
 
     // --- target ---------------------------------------------------------
-    if (run.target && Object.keys(run.target).length > 0) {
-      frag.append(el("h2", {}, "Target"), kvTable("Benchmark target", run.target));
+    // The detail API flattens target fields to the top level.
+    const target: Record<string, unknown> = {
+      ...(run.target ?? {}),
+      ...(run.model != null ? { model: run.model } : {}),
+      ...(run.runtime != null ? { runtime: run.runtime } : {}),
+      ...(run.provider != null ? { provider: run.provider } : {}),
+      ...(run.quantization != null ? { quantization: run.quantization } : {}),
+      ...(run.track != null ? { track: run.track } : {}),
+      ...(run.params && Object.keys(run.params).length > 0 ? run.params : {}),
+    };
+    if (Object.keys(target).length > 0) {
+      frag.append(el("h2", {}, "Target"), kvTable("Benchmark target", target));
     }
 
     // --- hardware profile -------------------------------------------------
-    const hw = run.environment?.hardware_profile;
+    const hw = run.hardware_profile ?? run.environment?.hardware_profile;
     if (hw && Object.keys(hw).length > 0) {
       frag.append(el("h2", {}, "Hardware profile"), kvTable("Hardware profile", hw));
     } else {

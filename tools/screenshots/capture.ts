@@ -31,7 +31,7 @@ const shots: Array<[string, string]> = [
   ["web-leaderboard", `${webUrl}/leaderboard/sprint/1`],
   ["web-glossary", `${webUrl}/docs/glossary`],
 ];
-if (runId) shots.push(["web-run-detail", `${webUrl}/runs/${runId}`]);
+if (runId) shots.push(["web-run-detail", `${webUrl}/run/?id=${encodeURIComponent(runId)}`]);
 
 for (const [name, url] of shots) {
   await page.goto(url, { waitUntil: "networkidle" });

@@ -63,8 +63,11 @@ AIMARK_RUN_OUT="$WORK/runout.txt"
 (cd apps/cli && $FREEZE "$AIMARK_RUN_OUT" "${FOPTS[@]}" --language text -o "$OUT/cli-run.svg")
 
 echo "==> website screenshots (Playwright)"
-(cd services/web && bun run build >/dev/null)
-bunx astro preview --root services/web --port 4322 &
+# Bake the local API origin into the build (meta aimark-api) so client
+# fetches hit the seeded stack; production builds leave it same-origin.
+(cd services/web && PUBLIC_AIMARK_API="http://localhost:$API_PORT" bun run build >/dev/null)
+(cd services/web && exec bun astro preview --port 4322) &
+PIDS+=($!)
 PIDS+=($!)
 wait_for "http://localhost:4322"
 CAPTURE_WEB_URL="http://localhost:4322" CAPTURE_API_URL="http://localhost:$API_PORT" \

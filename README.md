@@ -15,6 +15,26 @@ aimark submit                # publish your score (anonymous or GitHub-linked)
 
 Your run appears on the public leaderboard, comparable against every other submission for the same suite version and track.
 
+## A look around
+
+> These images are regenerated automatically by the [Docs Images workflow](.github/workflows/docs-images.yaml) — CLI output captured with freeze, site screenshots taken with Playwright against a seeded local stack.
+
+The CLI benchmarking a model and printing its score card:
+
+![aimark run output](docs/images/cli-run.svg)
+
+The public leaderboard (flagged and CI-sourced runs are excluded by default — toggles reveal them):
+
+![Sprint 1 leaderboard](docs/images/web-leaderboard.png)
+
+Every run gets a shareable detail page with scores, hardware, metrics, and integrity status:
+
+![Run detail page](docs/images/web-run-detail.png)
+
+The novice-first glossary — every piece of jargon site-wide gets a hover definition:
+
+![Glossary](docs/images/web-glossary.png)
+
 ## What gets measured
 
 | Sub-score           | Aggregates                                                          |
