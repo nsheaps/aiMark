@@ -56,22 +56,22 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 
 ## G4 — Web (Phases 1–2 scope)
 
-- [ ] G4.1 Home: hero, headline boards, download/install instructions
-- [ ] G4.2 /leaderboard/[suite]/[version]: sliceable table, track + verified/CI toggles
-- [ ] G4.3 /runs/[id]: full detail + integrity status
-- [ ] G4.4 /compare?ids=: per-metric deltas, param-diff highlighting
-- [ ] G4.5 /docs/glossary: ≥25 plain-English terms (Phase 1), full ~80 (Phase 2); `<Term>` hover tooltips
-- [ ] G4.6 /docs/methodology: scoring model, tracks, versioning, integrity honesty page
+- [x] G4.1 Home: hero, headline boards, download/install instructions
+- [x] G4.2 /leaderboard/[suite]/[version]: sliceable table, track + verified/CI toggles
+- [x] G4.3 /runs/[id]: full detail + integrity status
+- [x] G4.4 /compare?ids=: per-metric deltas, param-diff highlighting
+- [x] G4.5 /docs/glossary: ≥25 plain-English terms (Phase 1), full ~80 (Phase 2); `<Term>` hover tooltips
+- [x] G4.6 /docs/methodology: scoring model, tracks, versioning, integrity honesty page
 - [ ] G4.7 /models, /hardware, /explore/params explorers (Phase 3)
-- [ ] G4.8 Install page + `install.sh` curl installer served from the site
+- [x] G4.8 Install page + `install.sh` curl installer served from the site
 
 ## G5 — Suites (data)
 
 - [x] G5.1 Sprint-1 frozen: prompts, protocol, reference baselines, weights (validates against suite-manifest.v1)
-- [ ] G5.2 Gauntlet-1: math/extraction/instruction tasks + objective graders (Phase 2)
-- [ ] G5.3 Marathon-1: concurrency 1/4/16 protocol (Phase 2)
-- [ ] G5.4 Deep Dive-1: context-length ladder + needle tasks (Phase 3)
-- [ ] G5.5 Forge-1: coding tasks + hidden tests via goja (Phase 3)
+- [x] G5.2 Gauntlet-1: math/extraction/instruction tasks + objective graders (Phase 2)
+- [x] G5.3 Marathon-1: concurrency 1/4/16 protocol (Phase 2)
+- [x] G5.4 Deep Dive-1: context-length ladder + needle tasks (Phase 3)
+- [x] G5.5 Forge-1: coding tasks + hidden tests via goja (Phase 3)
 - [ ] G5.6 Relay-1: agentic tool-use suite (Phase 4 stretch)
 
 ## G6 — E2E CI (owner requirement)
@@ -80,20 +80,20 @@ Statuses: `[ ]` todo · `[x]` done+verified · `[~]` partial (note what's left) 
 - [x] G6.2 `e2e.yaml`: build CLI → `aimark run` against mock-llm → local API (bun+sqlite) → **anonymous submit** → assert run persisted, scores recomputed, claim token works
 - [x] G6.3 E2E asserts **CI flagging**: submitted run has source=ci; default leaderboard hides it; `include_ci=true` shows it
 - [x] G6.4 E2E exercises real-Ollama path on a schedule/manual dispatch (tiny model), not on every PR
-- [ ] G6.5 E2E green in CI on this branch
+- [x] G6.5 E2E green in CI on this branch (e2e-mock passed on 9a5cf56 and 4488a32)
 
 ## G7 — Auto-updating docs images (owner requirement)
 
-- [ ] G7.1 CLI terminal captures rendered to SVG/PNG (charmbracelet/freeze or equivalent) in CI
-- [ ] G7.2 Website screenshots (home, leaderboard, run detail) via Playwright against seeded local stack in CI
-- [ ] G7.3 `docs-images.yaml`: regenerates captures, auto-commits to `docs/images/` when changed (app-auth fallback pattern)
-- [ ] G7.4 README + docs reference the auto-updated images; images render on GitHub
+- [x] G7.1 CLI terminal captures rendered to SVG/PNG (charmbracelet/freeze or equivalent) in CI
+- [x] G7.2 Website screenshots (home, leaderboard, run detail) via Playwright against seeded local stack in CI
+- [x] G7.3 `docs-images.yaml`: regenerates captures, auto-commits to `docs/images/` when changed (app-auth fallback pattern)
+- [x] G7.4 README + docs reference the auto-updated images; images render on GitHub
 
 ## G8 — Release & distribution
 
 - [x] G8.1 release-cli.yaml: v\* tags → goreleaser 6 targets + checksums + GitHub Release
 - [x] G8.2 release-web.yaml: web-v\* via release-it
-- [ ] G8.3 Homebrew tap [B] — tap repo not in session scope; goreleaser brews block prepared but disabled
+- [B] G8.3 Homebrew tap — homebrew_casks block prepared in .goreleaser.yaml with skip_upload: true; owner flips it on once nsheaps/homebrew-tap + HOMEBREW_TAP_TOKEN exist
 - [ ] G8.4 First pre-release tag cut so `aimark version` installs from a release (after merge; needs owner merge decision)
 
 ## G9 — Owner-blocked items (tracked, not deliverable from this session)

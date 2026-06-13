@@ -14,7 +14,6 @@ before:
 
 builds:
   - main: ./cmd/aimark
-    binary: aimark
     env:
       - CGO_ENABLED=0
     goos:
@@ -46,3 +45,18 @@ changelog:
 release:
   draft: false
   prerelease: auto
+
+# Homebrew tap publishing — prepared but disabled: the tap repository isn't
+# reachable from this automation yet (owner action: create/grant
+# nsheaps/homebrew-tap, set skip_upload to false, and provide
+# HOMEBREW_TAP_TOKEN with repo scope in release-cli.yaml).
+homebrew_casks:
+  - name: aimark
+    repository:
+      owner: nsheaps
+      name: homebrew-tap
+      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
+    skip_upload: true
+    homepage: https://aimark.dev
+    description: Like 3DMark, but for AI — benchmark AI models across runtimes and hardware
+    license: NOASSERTION
